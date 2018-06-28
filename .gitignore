@@ -107,3 +107,6 @@ target/
 
 # mypy cache folder
 .mypy_cache
+
+# tests cache folder
+.pytest_cache

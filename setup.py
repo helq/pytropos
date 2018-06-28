@@ -286,7 +286,7 @@ setup_dict = dict(
     zip_safe=False,  # don't use eggs
     entry_points={
         'console_scripts': [
-            'tensorlint_cli = tensorlint.main:entry_point'
+            'tensorlint = tensorlint.main:entry_point'
         ],
         # if you have a gui, use this
         # 'gui_scripts': [

@@ -4,13 +4,15 @@
 
 from __future__ import print_function
 
+from typing import List
+
 import argparse
 import sys
 
 from tensorlint import metadata
 
 
-def main(argv):
+def main(argv : List[str]) -> int:
     """Program entry point.
 
     :param argv: command-line arguments
@@ -20,12 +22,12 @@ def main(argv):
     for name, email in zip(metadata.authors, metadata.emails):
         author_strings.append('Author: {0} <{1}>'.format(name, email))
 
-    epilog = '''
-{project} {version}
-
-{authors}
-URL: <{url}>
-'''.format(
+    epilog = (
+      '{project} {version}\n' +
+      '\n' +
+      '{authors}' +
+      'URL: <{url}>)\n'
+      ).format(
         project=metadata.project,
         version=metadata.version,
         authors='\n'.join(author_strings),
@@ -41,14 +43,27 @@ URL: <{url}>
         action='version',
         version='{0} {1}'.format(metadata.project, metadata.version))
 
-    arg_parser.parse_args(args=argv[1:])
+    arg_parser.add_argument(
+        'file',
+        type=argparse.FileType('r'),
+        help='File to analyse')
 
-    print(epilog)
+    args_parsed = arg_parser.parse_args(args=argv[1:])
+
+    print("Hi there! this is the starting point of everything")
+
+    print("Trying something simple, printing a json AST created by mypy's parser")
+    from mypy import fastparse
+    from tensorlint.parser.mypy import todict
+    import json
+    file = args_parsed.file
+    mypyfile = fastparse.parse(file.read(), file.name, None)
+    print( json.dumps(todict(mypyfile), indent=1) )
 
     return 0
 
 
-def entry_point():
+def entry_point() -> None:
     """Zero-argument entry point for use with setuptools/distribute."""
     raise SystemExit(main(sys.argv))
 

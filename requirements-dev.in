@@ -1,0 +1,24 @@
+# Runtime requirements
+--requirement requirements.in
+
+# Testing
+pytest
+py
+
+# Linting
+flake8
+mccabe
+pyflakes
+pycodestyle
+
+# Documentation
+Sphinx
+
+docutils
+Jinja2
+MarkupSafe
+Pygments
+
+# Miscellaneous
+Paver
+colorama

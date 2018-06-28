@@ -6,8 +6,8 @@ used by different libraries.
 
 Currently it does nothing useful. Come back when it does something ;)
 
-Developer steps to build
-------------------------
+Development
+-----------
 
 Create and enter enviroment:
 
