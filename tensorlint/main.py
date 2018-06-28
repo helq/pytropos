@@ -55,9 +55,14 @@ def main(argv : List[str]) -> int:
     print("Parsing and un-parsing a python file (it should preserve all type comments)")
     from typed_ast import ast3
     from typed_astunparse import unparse
+    from tensorlint.translate import to_tensorlint
     file = args_parsed.file
-    mypyfile = ast3.parse(file.read(), filename=file.name)
-    print( unparse( mypyfile ) )
+    ast = ast3.parse(file.read(), filename=file.name)
+
+    print( "Original file:" )
+    print( unparse( ast ) )
+    print( "Modified file:" )
+    print( unparse( to_tensorlint( ast ) ) )
 
     return 0
 
