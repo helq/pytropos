@@ -52,13 +52,12 @@ def main(argv : List[str]) -> int:
 
     print("Hi there! this is the starting point of everything")
 
-    print("Trying something simple, printing a json AST created by mypy's parser")
-    from mypy import fastparse
-    from tensorlint.parser.mypy import todict
-    import json
+    print("Parsing and un-parsing a python file (it should preserve all type comments)")
+    from typed_ast import ast3
+    from typed_astunparse import unparse
     file = args_parsed.file
-    mypyfile = fastparse.parse(file.read(), file.name, None)
-    print( json.dumps(todict(mypyfile), indent=1) )
+    mypyfile = ast3.parse(file.read(), filename=file.name)
+    print( unparse( mypyfile ) )
 
     return 0
 
