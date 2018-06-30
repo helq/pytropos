@@ -58,11 +58,12 @@ def main(argv : List[str]) -> int:
     from tensorlint.translate import to_tensorlint
     file = args_parsed.file
     ast = ast3.parse(file.read(), filename=file.name)
+    newast = to_tensorlint( ast )
 
     print( "Original file:" )
     print( unparse( ast ) )
     print( "Modified file:" )
-    print( unparse( to_tensorlint( ast ) ) )
+    print( unparse( newast ) )
 
     return 0
 

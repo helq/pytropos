@@ -1,5 +1,5 @@
 from typed_ast import ast3
-from typing import Callable, Any, Optional, TypeVar
+from typing import Callable, Any, Optional, List
 
 class AstAttributeUnknown(Exception):
     pass
@@ -44,6 +44,15 @@ def walk_ast(
     else:
         return f_after(klass(**new_attrs))
 
+class InternalWarning(object):
+    msg = None # type: str
+    def __init__(self, msg: str) -> None:
+        self.msg = msg
+    def __repr__(self) -> str:
+        return "InternalWarning('"+repr(self.msg)+"')"
+
+internal_warnings : List[InternalWarning] = []
+
 def to_tensorlint(tree: ast3.AST) -> ast3.AST:
     def helper(v: ast3.AST) -> ast3.AST:
         # this needs to be done in the upward walk because it creates a copy of itself
@@ -70,6 +79,7 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
                 # AST, but it works!! (it prints on the screen what we
                 # want)
                 alias.name = 'tensorlint.libs.' + sublib
+            return v
         # converting `for i in range(10)` into `with for_loop(range(10)) as (i, tl)`
         elif isinstance(v, ast3.For):
             return ast3.With(
@@ -89,6 +99,12 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
                             ctx=ast3.Store()))],
                      body=v.body,
                      type_comment=None)
+        # To see the errors generated in execution run the code in this manner:
+        # $ python -i -m tensorlint.main file.py
+        # > import tensorlint.translate as tt
+        # > for i in tt.internal_warnings:
+        # ...  print(i)
+        internal_warnings.append( InternalWarning("There is no rule for this kind of AST node: `{}`".format(type(v))) )
         return v
 
     # TODO(helq): add trick to documentation, use ast3.dump(ast3.parse('expr').body[0]) to
