@@ -1,14 +1,11 @@
 from typed_ast import ast3
 from typing import Callable, Any, Optional, List, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import ast
+import ast
 
 class AstAttributeUnknown(Exception):
     pass
 
 def to_python_AST(tree: ast3.AST) -> 'ast.AST':
-    import ast
     def helper(v: Any) -> Any:
         """
         Takes a typed_ast.AST and converts it into a python ast.AST
@@ -78,14 +75,14 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
         # this needs to be done in the upward walk because it creates a copy of itself
         # down the tree. It would recurse indefinitely if it were executed in the downward
         # pass
-        if isinstance(v, ast3.Num):
-            # converting num `n` to `tl.Value(int, v.n)`
+        if isinstance(v, ast3.Num) and isinstance(v.n, int):
+            # converting num `n` to `tl.Int(int, v.n)`
             return ast3.Call(
                     func = ast3.Attribute(
                             value = ast3.Name( id='tl', ctx=ast3.Load()),
-                            attr = 'Value',
+                            attr = 'Int',
                             ctx = ast3.Load()),
-                    args = [ast3.Name(id='int', ctx=ast3.Load()), ast3.Num(n=v.n)], keywords=[])
+                    args = [ast3.Num(n=v.n)], keywords=[])
         elif isinstance(v, ast3.Import):
             for alias in v.names:
                 if alias.name in ['numpy']:
@@ -115,6 +112,11 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
                          optional_vars=ast3.Name(id='i', ctx=ast3.Store()))],
                      body=v.body,
                      type_comment=None)
+        # removing annotation from Annotated Assignment
+        # TODO(helq): in the future, the annotation should be taken into
+        # account if it is telling us something about the type of the tensor
+        elif isinstance(v, ast3.AnnAssign):
+            return ast3.Assign( targets=[v.target], value=v.value )
         # To see the errors generated in execution run the code in this manner:
         # $ python -i -m tensorlint.main file.py
         # > import tensorlint.translate as tt
@@ -131,7 +133,7 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
     new_ast.body = ( # type: ignore
         ast3.parse( # type: ignore
             'import tensorlint as tl\n'
-            'from tensorlint.base import *\n'
+            'from tensorlint.libs.base import *\n'
         ).body
       + new_ast.body) # type: ignore
     return new_ast

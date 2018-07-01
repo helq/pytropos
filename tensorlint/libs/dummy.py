@@ -1,7 +1,7 @@
 from typing import Iterable, Union
-from tensorlint.internals import Value, Tensor
+from tensorlint.internals import Value
 
 __all__ = ['fun']
 
-def fun( *val : Union[Value, Tensor] ) -> Union[Value, Tensor]:
+def fun( *val : Value ) -> Value:
     pass

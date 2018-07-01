@@ -67,11 +67,12 @@ def main(argv : List[str]) -> int:
 
     import ast
     newast_py = ast.fix_missing_locations( to_python_AST(newast) )
-    newast_comp = compile(newast_py, '<string>', 'exec')
+    # print( ast.dump(newast_py) )
+    newast_comp = compile(newast_py, '<generated typechecking ast>', 'exec')
     tl_globals = {} # type: Dict[str, Any]
     tl_locals = {}  # type: Dict[str, Any]
 
-    from tensorlint.internals import NonImplementedTL
+    from tensorlint.internals.tools import NonImplementedTL
     try:
         exec( newast_comp, tl_globals, tl_locals )
     except NonImplementedTL as msg:

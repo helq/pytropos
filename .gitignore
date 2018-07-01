@@ -110,3 +110,6 @@ target/
 
 # tests cache folder
 .pytest_cache
+
+# neomake (vim plugin) stuff
+.*@neomake_*
