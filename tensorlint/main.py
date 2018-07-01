@@ -4,7 +4,7 @@
 
 from __future__ import print_function
 
-from typing import List
+from typing import List, Dict, Any
 
 import argparse
 import sys
@@ -55,15 +55,33 @@ def main(argv : List[str]) -> int:
     print("Parsing and un-parsing a python file (it should preserve all type comments)")
     from typed_ast import ast3
     from typed_astunparse import unparse
-    from tensorlint.translate import to_tensorlint
+    from tensorlint.translate import to_tensorlint, to_python_AST
     file = args_parsed.file
-    ast = ast3.parse(file.read(), filename=file.name)
-    newast = to_tensorlint( ast )
+    ast_ = ast3.parse(file.read(), filename=file.name)
+    newast = to_tensorlint( ast_ )
 
     print( "Original file:" )
-    print( unparse( ast ) )
+    print( unparse( ast_ ) )
     print( "Modified file:" )
     print( unparse( newast ) )
+
+    import ast
+    newast_py = ast.fix_missing_locations( to_python_AST(newast) )
+    newast_comp = compile(newast_py, '<string>', 'exec')
+    tl_globals = {} # type: Dict[str, Any]
+    tl_locals = {}  # type: Dict[str, Any]
+
+    from tensorlint.internals import NonImplementedTL
+    try:
+        exec( newast_comp, tl_globals, tl_locals )
+    except NonImplementedTL as msg:
+        print("Type checking errors found")
+        print( tl_locals['tl'].errors )
+        raise msg
+    else:
+        print("Everything ok! It typechecked!")
+
+    # print(tl_locals)
 
     return 0
 

@@ -1,8 +1,28 @@
 from typed_ast import ast3
-from typing import Callable, Any, Optional, List
+from typing import Callable, Any, Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import ast
 
 class AstAttributeUnknown(Exception):
     pass
+
+def to_python_AST(tree: ast3.AST) -> 'ast.AST':
+    import ast
+    def helper(v: Any) -> Any:
+        """
+        Takes a typed_ast.AST and converts it into a python ast.AST
+        """
+        if isinstance(v, ast3.AST):
+            fields = [f for f in v._fields if f != 'type_comment']
+            klass = getattr(ast, type(v).__name__)
+            return klass( **{ f: to_python_AST(getattr(v, f)) for f in fields } )
+        elif isinstance(v, list):
+            return [to_python_AST(e) for e in v]
+        elif isinstance(v, (str, int, float)) or v is None:
+            return v
+        raise AstAttributeUnknown("to_python_AS: The type '{}' is unknown to me".format(type(v)))
+    return helper(tree) # type: ignore
 
 # walk_ast(tree) returns a copy of the tree
 # the function f_before and f_after take an AST and return the AST modified as they
@@ -59,11 +79,11 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
         # down the tree. It would recurse indefinitely if it were executed in the downward
         # pass
         if isinstance(v, ast3.Num):
-            # converting num `n` to `tl.value(int, v.n)`
+            # converting num `n` to `tl.Value(int, v.n)`
             return ast3.Call(
                     func = ast3.Attribute(
                             value = ast3.Name( id='tl', ctx=ast3.Load()),
-                            attr = 'value',
+                            attr = 'Value',
                             ctx = ast3.Load()),
                     args = [ast3.Name(id='int', ctx=ast3.Load()), ast3.Num(n=v.n)], keywords=[])
         elif isinstance(v, ast3.Import):
@@ -92,11 +112,7 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
                              ctx=ast3.Load()),
                            args=[v.iter],
                            keywords=[]),
-                          optional_vars=ast3.Tuple(
-                            elts=[
-                              ast3.Name(id='tl', ctx=ast3.Store()),
-                              ast3.Name(id='i', ctx=ast3.Store())],
-                            ctx=ast3.Store()))],
+                         optional_vars=ast3.Name(id='i', ctx=ast3.Store()))],
                      body=v.body,
                      type_comment=None)
         # To see the errors generated in execution run the code in this manner:

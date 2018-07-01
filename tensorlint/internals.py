@@ -28,6 +28,13 @@ class TL_TypeError(object):
         self.msg        = msg
         self.lineno     = lineno
         self.col_offset = col_offset
+    def __repr__(self) -> str:
+        return (
+            "tl.TL_TypeError(" +
+            repr(self.msg) + ', ' +
+            repr(self.lineno) + ', ' +
+            repr(self.col_offset) +
+            ')')
 
 errors : List[TL_TypeError] = []
 warnings : List[TL_TypeError] = []

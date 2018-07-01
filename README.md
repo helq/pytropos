@@ -6,6 +6,12 @@ used by different libraries.
 
 Currently it does nothing useful. Come back when it does something ;)
 
+Why is this all written in python 3.6
+-------------------------------------
+
+It's time people to move on! Python 2 is an amazing tool, but it's already several years
+old, and soon it will deprecated.
+
 Development
 -----------
 
