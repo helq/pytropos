@@ -68,7 +68,7 @@ def main(argv : List[str]) -> int:
     import ast
     newast_py = ast.fix_missing_locations( to_python_AST(newast) )
     # print( ast.dump(newast_py) )
-    newast_comp = compile(newast_py, '<generated typechecking ast>', 'exec')
+    newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
     tl_globals = {} # type: Dict[str, Any]
     tl_locals = {}  # type: Dict[str, Any]
 
@@ -80,7 +80,7 @@ def main(argv : List[str]) -> int:
         print( tl_locals['tl'].errors )
         raise msg
     else:
-        print("Everything ok! It typechecked!")
+        print("Everything ok! It type checked!")
 
     # print(tl_locals)
 
