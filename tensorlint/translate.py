@@ -1,6 +1,11 @@
 from typed_ast import ast3
-from typing import Callable, Any, Optional, List, TYPE_CHECKING
+from typing import (
+    Callable, Any, Optional, List, Union, TYPE_CHECKING,
+    Tuple
+)
 import ast
+
+__all__ = ["AstAttributeUnknown", "InternalWarning", "internal_warnings", "to_tensorlint"]
 
 class AstAttributeUnknown(Exception):
     pass
@@ -21,6 +26,15 @@ def to_python_AST(tree: ast3.AST) -> 'ast.AST':
         raise AstAttributeUnknown("to_python_AS: The type '{}' is unknown to me".format(type(v)))
     return helper(tree) # type: ignore
 
+def flatten(lst: List[Union[Any, List[Any]]]) -> List[Any]:
+    toret = []
+    for e in lst:
+        if isinstance(e, list):
+            toret.extend( flatten(e) )
+        else:
+            toret.append( e )
+    return toret
+
 # walk_ast(tree) returns a copy of the tree
 # the function f_before and f_after take an AST and return the AST modified as they
 # please, there is no need for them to traverse the structure, walk_ast does that for
@@ -30,8 +44,8 @@ def to_python_AST(tree: ast3.AST) -> 'ast.AST':
 # valid and it will be the same result in the end.
 def walk_ast(
         tree:     ast3.AST,
-        f_before: Optional[Callable[[ast3.AST], ast3.AST]] = None,
-        f_after:  Optional[Callable[[ast3.AST], ast3.AST]] = None,
+        f_before: Optional[Callable[[ast3.AST], Any]] = None,
+        f_after:  Optional[Callable[[ast3.AST], Any]] = None,
         verbose:  bool = False
         ) -> ast3.AST:
 
@@ -40,7 +54,7 @@ def walk_ast(
 
     def walk_helper(v: Any) -> Any:
         if isinstance(v, list):
-            return [walk_helper(x) for x in v]
+            return flatten([walk_helper(x) for x in v])
         if isinstance(v, (str, int, float)) or v is None:
             return v
         if isinstance(v, ast3.AST):
@@ -59,7 +73,7 @@ def walk_ast(
     if f_after is None:
         return klass(**new_attrs)
     else:
-        return f_after(klass(**new_attrs))
+        return f_after(klass(**new_attrs)) # type: ignore
 
 class InternalWarning(object):
     msg = None # type: str
@@ -71,7 +85,7 @@ class InternalWarning(object):
 internal_warnings : List[InternalWarning] = []
 
 def to_tensorlint(tree: ast3.AST) -> ast3.AST:
-    def helper(v: ast3.AST) -> ast3.AST:
+    def helper(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]:
         # this needs to be done in the upward walk because it creates a copy of itself
         # down the tree. It would recurse indefinitely if it were executed in the downward
         # pass
@@ -84,19 +98,34 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
                             ctx = ast3.Load()),
                     args = [ast3.Num(n=v.n)], keywords=[])
         elif isinstance(v, ast3.Import):
+            modules_supported:    List[Tuple[str,Optional[str]]] = []
+            modules_notsupported: List[Tuple[str,Optional[str]]] = []
             for alias in v.names:
                 if alias.name in ['numpy']:
-                    sublib = alias.name
+                    modules_supported.append( (alias.name, alias.asname) )
                 else:
-                    sublib = 'dummy'
-                if alias.asname is None:
-                    alias.asname = alias.name
+                    modules_notsupported.append( (alias.name, alias.asname) )
 
-                # TODO(helq): this is not a valid id, this creates a wrong
-                # AST, but it works!! (it prints on the screen what we
-                # want)
-                alias.name = 'tensorlint.libs.' + sublib
-            return v
+            libs: List[ast3.AST] = []
+            if len(modules_supported) > 0:
+                libs.append(
+                  ast3.Import(
+                      names=[ast3.alias(name='tensorlint.libs.'+name,
+                                        asname=name if asname is None else asname)
+                             for [name, asname] in modules_supported])
+                )
+
+            if len(modules_notsupported) > 0:
+                libs.append(
+                  ast3.ImportFrom(
+                      module='tensorlint.libs',
+                      names=[
+                          ast3.alias(name='dummy', asname=name if asname is None else asname)
+                          for [name, asname] in modules_notsupported],
+                      level=0)
+                )
+
+            return libs
         # converting `for i in range(10)` into `with for_loop(range(10)) as (i, tl)`
         elif isinstance(v, ast3.For):
             return ast3.With(

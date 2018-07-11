@@ -11,6 +11,7 @@ Pos = ty.Tuple[int,int]
 
 # TODO(helq): copy notation (names used) from the library
 
+@addRules()
 class array(Value):
     type_ = None # type: ty.Any
     shape = None # type: ty.Tuple[Int, ...]
@@ -75,6 +76,9 @@ def zeros( val : ty.Tuple[Int, ...], dtype: ty.Type = float64 ) -> array:
     # that they are valid (no negative values)
     return array(dtype, val)
 
+# TODO(helq): check that the values passed are ints, and not other thing
+# (except for Any), in that case use congruent to check for the validity of the
+# values
 def ones( val : ty.Tuple[Int, ...], dtype: ty.Type = float64 ) -> array:
     return array(dtype, val)
 

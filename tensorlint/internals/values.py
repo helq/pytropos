@@ -51,41 +51,44 @@ class Value(object):
         return self.__mul__(other, pos)
 
 # TODO(helq): improve documentation
-def addRules(cls: ty.Type) -> ty.Type:
-    """
-    This decorator adds the rules defined by a class to Value
-    """
-    def none2cls(t: ty.Optional[ty.Type]) -> ty.Type:
-        return cls if t is None else t
+def addRules(debug: bool = False) -> ty.Callable[[ty.Type], ty.Type]:
+    def deco(cls: ty.Type) -> ty.Type:
+        """
+        This decorator adds the rules defined by a class to Value
+        """
+        def none2cls(t: ty.Optional[ty.Type]) -> ty.Type:
+            return cls if t is None else t
 
-    # Modifying original class
-    # removing all special method names implemented by
-    modified_methods = [] # type: ty.List[str]
-    for methodName in special_methods:
-        method = '__{}__'.format(methodName)
-        if method in cls.__dict__:
-            fun = getattr(cls, method)
-            getattr(Value, '_Value__special_methods_implementations')[methodName].extend(
-                [(cls, none2cls(tR), fun) for tR in cls.add_impls]
-            )
-            delattr(cls, method)
-            modified_methods.append( method )
+        # Modifying original class
+        # removing all special method names implemented by
+        modified_methods = [] # type: ty.List[str]
+        for methodName in special_methods:
+            method = '__{}__'.format(methodName)
+            if method in cls.__dict__:
+                fun = getattr(cls, method)
+                getattr(Value, '_Value__special_methods_implementations')[methodName].extend(
+                    [(cls, none2cls(tR), fun) for tR in cls.add_impls]
+                )
+                delattr(cls, method)
+                modified_methods.append( method )
 
-    print('Methods `{}` added from class `{}` to Value'.format(modified_methods, cls))
+        if debug:
+            print('Methods `{}` added from class `{}` to Value'.format(modified_methods, cls))
 
-    # All methods from Value that weren't implemented are prevent from working
-    # in any way
-    numeric_methods_ = set(["__{}__".format(v) for v in special_methods])
-    notimplemented = numeric_methods_.difference(modified_methods)
-    if hasattr(cls, 'impls_inherit'):
-        notimplemented = notimplemented.difference( cls.impls_inherit )
-    for method in notimplemented:
-        def failureMethod(*args, **kargs): # type: ignore
-            return NotImplemented
+        # All methods from Value that weren't implemented are prevent from working
+        # in any way
+        numeric_methods_ = set(["__{}__".format(v) for v in special_methods])
+        notimplemented = numeric_methods_.difference(modified_methods)
+        if hasattr(cls, 'impls_inherit'):
+            notimplemented = notimplemented.difference( cls.impls_inherit )
+        for method in notimplemented:
+            def failureMethod(*args, **kargs): # type: ignore
+                return NotImplemented
 
-        setattr(cls, method, failureMethod)
+            setattr(cls, method, failureMethod)
 
-    return cls
+        return cls
+    return deco
 
 # TODO(helq): Implement all methods special method names
 # https://docs.python.org/3/reference/datamodel.html#special-method-names
@@ -99,13 +102,13 @@ class Any(Value):
     def __getitem__(self, key: ty.Any) -> 'Any':
         return Any()
 
-@addRules
+@addRules()
 class Iterable(Value):
     val = None # type: ty.Any
     def __init__(self, val: ty.Any) -> None:
         self.val = val
 
-@addRules
+@addRules()
 class Str(Value):
     s = None # type: str
     def __init__(self, s: str) -> None:
@@ -115,7 +118,7 @@ class Str(Value):
 # TODO(helq): trying to set an attribute should throw an error (ie, the
 # simulation of the basic building blocks (int, float, ...) should be as close
 # as possible to the official libraries)
-@addRules
+@addRules()
 class Int(Value):
     n = None # type: ty.Optional[int]
 
@@ -141,7 +144,7 @@ class Int(Value):
     def __repr__(self) -> str:
         return "Int("+repr(self.n)+")"
 
-@addRules
+@addRules()
 class Float(Value):
     n = None # type: ty.Optional[float]
     add_impls = [None, Int] # type: ty.List[ty.Optional[ty.Type]]
