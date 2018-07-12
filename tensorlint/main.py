@@ -61,8 +61,10 @@ def main(argv : List[str]) -> int:
     newast = to_tensorlint( ast_ )
 
     print( "Original file:" )
+    # print( ast3.dump(ast_) )
     print( unparse( ast_ ) )
     print( "Modified file:" )
+    # print( ast3.dump(newast) )
     print( unparse( newast ) )
 
     import ast

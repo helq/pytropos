@@ -25,7 +25,7 @@ class array(Value):
         self.shape = shape
 
     # Everything happens here, this is where the type checking is done
-    def __binop(self, opname: str, other: Value, pos: ty.Optional[Pos] = None): # type: ignore
+    def __binop(self, opname: str, other: Value, src_pos: ty.Optional[Pos] = None): # type: ignore
         if isinstance(other, Int):
             # TODO(helq): the type of the resulting tensor is not the original,
             # but it depends on the value of the variable
@@ -51,11 +51,11 @@ class array(Value):
         else:
             return NotImplemented
 
-    def __add__(self, other: Value, pos: ty.Optional[Pos] = None) -> Value:
-        return self.__binop('add', other, pos) # type: ignore
+    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value: # type: ignore
+        return self.__binop('add', other, src_pos) # type: ignore
 
-    def __mul__(self, other: Value, pos: ty.Optional[Pos] = None) -> Value:
-        return self.__binop('mul', other, pos) # type: ignore
+    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value: # type: ignore
+        return self.__binop('mul', other, src_pos) # type: ignore
 
     # TODO(helq): make this abstract, each class should implement it or use
     # reflection to print the right name always
@@ -71,7 +71,9 @@ class float64(NdarrayDtype):
 class float32(NdarrayDtype):
     pass
 
-def zeros( val : ty.Tuple[Int, ...], dtype: ty.Type = float64 ) -> array:
+def zeros(val: ty.Tuple[Int, ...],
+          dtype: ty.Type = float64,
+          src_pos: ty.Optional[Pos] = None) -> array:
     # TODO(helq): typecheck that the pass values are of the correct type and
     # that they are valid (no negative values)
     return array(dtype, val)
@@ -79,14 +81,20 @@ def zeros( val : ty.Tuple[Int, ...], dtype: ty.Type = float64 ) -> array:
 # TODO(helq): check that the values passed are ints, and not other thing
 # (except for Any), in that case use congruent to check for the validity of the
 # values
-def ones( val : ty.Tuple[Int, ...], dtype: ty.Type = float64 ) -> array:
+def ones(val: ty.Tuple[Int, ...],
+         dtype: ty.Type = float64,
+         src_pos: ty.Optional[Pos] = None) -> array:
     return array(dtype, val)
 
-def dot( vall: Value, valr: Value ) -> Value:
+def dot(vall: Value,
+        valr: Value,
+        src_pos: ty.Optional[Pos] = None) -> Value:
     if isinstance(vall, array) and isinstance(valr, array):
         if vall.type_ == valr.type_:
             if len(vall.shape) != 2 or len(valr.shape) != 2:
-                errors.append( TL_TypeError("Some tensor doesn't have dimension 2", -1, -1) )
+                line, col = (-1, -1) if src_pos is None else src_pos
+                # TODO(helq): add values of the shapes of the tensors
+                errors.append( TL_TypeError("Some tensor doesn't have dimension 2", line, col) )
                 raise NonImplementedTL("`numpy.dot` matrix multiplication requires tensors of dimension 2")
             # TODO(helq): define __eq__ to check for equality of 'Value's
             else:
@@ -94,11 +102,12 @@ def dot( vall: Value, valr: Value ) -> Value:
                 sright = valr.shape[0].n
                 if (sleft is not None and sright is not None):
                     if sleft != sright:
-                        errors.append( TL_TypeError("Matrices are not compatible for multiplication", -1, -1) )
+                        line, col = (-1, -1) if src_pos is None else src_pos
+                        errors.append( TL_TypeError("Matrices are not compatible for multiplication", line, col) )
                         # TODO(helq): create warnings in case an operation potentially
                         # fails but we're not sure, like when adding two numbers and one of
                         # them is a symbol
-                        raise NonImplementedTL("`numpy.dot` Matrices are not compatible for multiplication")
+                        raise NonImplementedTL("`numpy.dot` There isn't a complete check of matrix compatibility for dot multiplication")
                     else:
                         return array(vall.type_, (vall.shape[0], valr.shape[1]))
 

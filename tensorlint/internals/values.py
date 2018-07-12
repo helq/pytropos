@@ -14,7 +14,11 @@ special_methods = binary_op_methods
 class Value(object):
     __special_methods_implementations = {op: [] for op in binary_op_methods if op[0]!='r'} # type: ty.Any
 
-    def __binop(self, op: str, other: 'Value', pos: ty.Optional[Pos] = None) -> 'ty.Union[Value, NotImplemented]':
+    def __binop(self,
+                op: str,
+                other: 'Value',
+                src_pos: ty.Optional[Pos] = None,
+                rev: bool=False) -> 'ty.Union[Value, NotImplemented]':
         if isinstance(self, Any) or isinstance(other, Any):
             return Any()
         for typeL, typeR, fun in self.__special_methods_implementations[op]:
@@ -22,7 +26,7 @@ class Value(object):
             # print("current types: {}  {}".format(type(self), type(other)))
             # print("evaluation: {}  {}".format(type(self), type(other)))
             if isinstance(self, typeL) and isinstance(other, typeR):
-                res = fun(self, other, pos)
+                res = fun(self, other, src_pos)
                 if res != NotImplemented:
                     return res
                 else:
@@ -31,6 +35,11 @@ class Value(object):
                     # ie, typeL and typeR
                     print("Function operating between types `{}` and `{}`"
                           " didn't compute. This shouldn't happen!".format(typeL, typeR))
+        # Try reverse operation if everything failed, this isn't necessary for
+        # usual bin operation notation `5 + 3`, but for when the function is
+        # directly called `(5).__add__(3)`
+        if rev:
+            return other.__binop(op, self, src_pos, False)
         # TODO(helq): add typechecking error
         # print("The values couldn't be added")
         return NotImplemented
@@ -38,17 +47,23 @@ class Value(object):
         # not return NotImplemented (probably, return Any() but add error to
         # list of errors)
 
-    def __add__(self, other: 'Value', pos: ty.Optional[Pos] = None) -> 'Value':
-        return self.__binop('add', other, pos)
+    def __add__(self,
+                other: 'Value',
+                src_pos: ty.Optional[Pos] = None,
+                rev: bool = False) -> 'Value':
+        return self.__binop('add', other, src_pos, rev)
 
-    def __radd__(self, other, pos = None): # type: ignore # mypy fails if I type it T_T
-        return self.__add__(other, pos)
+    def __radd__(self, other, src_pos = None, rev: bool = False): # type: ignore # mypy fails if I type it T_T
+        return self.__add__(other, src_pos)
 
-    def __mul__(self, other: 'Value', pos: ty.Optional[Pos] = None) -> 'Value':
-        return self.__binop('mul', other, pos)
+    def __mul__(self,
+                other: 'Value',
+                src_pos: ty.Optional[Pos] = None,
+                rev: bool = False) -> 'Value':
+        return self.__binop('mul', other, src_pos)
 
-    def __rmul__(self, other, pos = None): # type: ignore # mypy fails if I type it T_T
-        return self.__mul__(other, pos)
+    def __rmul__(self, other, src_pos = None, rev: bool = False): # type: ignore # mypy fails if I type it T_T
+        return self.__mul__(other, src_pos)
 
 # TODO(helq): improve documentation
 def addRules(debug: bool = False) -> ty.Callable[[ty.Type], ty.Type]:
@@ -124,10 +139,12 @@ class Int(Value):
 
     add_impls = [None] # type: ty.List[ty.Optional[ty.Type]]
     impls_inherit = ['__radd__']
-    def __init__(self, n: ty.Optional[int] = None) -> None:
+    src_pos = None # Optional[Pos]
+    def __init__(self, n: ty.Optional[int] = None, src_pos: ty.Optional[Pos] = None) -> None:
         self.n = n
+        self.src_pos = src_pos
 
-    def __binop(self, opname: str, op, other: Value, pos: ty.Optional[Pos] = None): # type: ignore
+    def __binop(self, opname: str, op, other: Value, src_pos: ty.Optional[Pos] = None): # type: ignore
         if isinstance(other, Int):
             if self.n is None or other.n is None:
                 return Int()
@@ -135,11 +152,11 @@ class Int(Value):
                 return Int(op(self.n, other.n))
         return NotImplemented
 
-    def __add__(self, other: Value, pos: ty.Optional[Pos] = None) -> Value:
-        return self.__binop('add', operator.add, other, pos) # type: ignore
+    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value: # type: ignore
+        return self.__binop('add', operator.add, other, src_pos) # type: ignore
 
-    def __mul__(self, other: Value, pos: ty.Optional[Pos] = None) -> Value:
-        return self.__binop('mul', operator.mul, other, pos) # type: ignore
+    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value: # type: ignore
+        return self.__binop('mul', operator.mul, other, src_pos) # type: ignore
 
     def __repr__(self) -> str:
         return "Int("+repr(self.n)+")"
@@ -152,7 +169,7 @@ class Float(Value):
     def __init__(self, n: ty.Optional[float] = None) -> None:
         self.n = n
 
-    def __binop(self, opname: str, op, other: Value, pos: ty.Optional[Pos] = None): # type: ignore
+    def __binop(self, opname: str, op, other: Value, src_pos: ty.Optional[Pos] = None): # type: ignore
         if isinstance(other, (Int, Float)):
             if self.n is None or other.n is None:
                 return Float()
@@ -160,11 +177,11 @@ class Float(Value):
                 return Float(op(self.n, other.n))
         return NotImplemented
 
-    def __add__(self, other: Value, pos: ty.Optional[Pos] = None) -> Value:
-        return self.__binop('add', operator.add, other, pos) # type: ignore
+    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value: # type: ignore
+        return self.__binop('add', operator.add, other, src_pos) # type: ignore
 
-    def __mul__(self, other: Value, pos: ty.Optional[Pos] = None) -> Value:
-        return self.__binop('mul', operator.mul, other, pos) # type: ignore
+    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value: # type: ignore
+        return self.__binop('mul', operator.mul, other, src_pos) # type: ignore
 
     def __repr__(self) -> str:
         return "Float("+repr(self.n)+")"

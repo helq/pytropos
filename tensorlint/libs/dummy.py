@@ -10,4 +10,4 @@ __all__ = ['dummy']
 #
 # Dummy acquires its power form Any. Any is an object that can do anything but
 # always returns Any for all its operations
-dummy = Any
+dummy = Any()
