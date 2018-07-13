@@ -6,6 +6,8 @@ import sys
 import imp
 import subprocess
 
+from typing import List
+
 # TODO(helq): remove
 # # Python 2.6 subprocess.check_output compatibility. Thanks Greg Hewgill!
 # if 'check_output' not in dir(subprocess):
@@ -190,7 +192,7 @@ def _lint():
     return retcode
 
 
-def _test():
+def _test(pytest_args: List[str] = []) -> int:
     """Run the unit tests.
 
     :return: exit code
@@ -200,7 +202,7 @@ def _test():
     import pytest
     # This runs the unit tests.
     # It also runs doctest, but only on the modules in TESTS_DIRECTORY.
-    return pytest.main(PYTEST_FLAGS + [TESTS_DIRECTORY])
+    return pytest.main(PYTEST_FLAGS + [TESTS_DIRECTORY] + pytest_args)
 
 
 def _test_all():

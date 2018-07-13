@@ -113,3 +113,8 @@ target/
 
 # neomake (vim plugin) stuff
 .*@neomake_*
+
+# Ignore files cached by Hypothesis...
+.hypothesis/*
+# except for the examples directory
+!.hypothesis/examples/

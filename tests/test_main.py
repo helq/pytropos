@@ -8,8 +8,6 @@ from tensorlint import metadata
 from tensorlint.main import main
 
 
-PY2 = sys.version_info < (3, 0)
-
 # The parametrize function is generated, so this doesn't work:
 #
 #     from pytest.mark import parametrize
@@ -37,11 +35,7 @@ class TestMain(object):
         with raises(SystemExit) as exc_info:
             main(['progname', versionarg])
         out, err = capsys.readouterr()
-        if PY2:
-            check = err
-        else:
-            check = out
         # Should print out version.
-        assert check == '{0} {1}\n'.format(metadata.project, metadata.version)
+        assert out == '{0} {1}\n'.format(metadata.project, metadata.version)
         # Should exit with zero return code.
         assert exc_info.value.code == 0

@@ -4,6 +4,7 @@
 # Testing
 pytest
 py
+hypothesis
 
 # Linting
 flake8

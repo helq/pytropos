@@ -7,13 +7,15 @@
 alabaster==0.7.11         # via sphinx
 astunparse==1.5.0         # via typed-astunparse
 atomicwrites==1.1.5       # via pytest
-attrs==18.1.0             # via pytest
+attrs==18.1.0             # via hypothesis, pytest
 babel==2.6.0              # via sphinx
 certifi==2018.4.16        # via requests
 chardet==3.0.4            # via requests
 colorama==0.3.9
+coverage==4.5.1           # via hypothesis
 docutils==0.14
 flake8==3.5.0
+hypothesis==3.66.1
 idna==2.7                 # via requests
 imagesize==1.0.0          # via sphinx
 jinja2==2.10

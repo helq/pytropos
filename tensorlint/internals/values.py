@@ -138,7 +138,7 @@ class Int(Value):
     n = None # type: ty.Optional[int]
 
     add_impls = [None] # type: ty.List[ty.Optional[ty.Type]]
-    impls_inherit = ['__radd__']
+    impls_inherit = ['__radd__', '__rmul__']
     src_pos = None # Optional[Pos]
     def __init__(self, n: ty.Optional[int] = None, src_pos: ty.Optional[Pos] = None) -> None:
         self.n = n
@@ -161,6 +161,7 @@ class Int(Value):
     def __repr__(self) -> str:
         return "Int("+repr(self.n)+")"
 
+# TODO(helq): add warning when operating with nan values
 @addRules()
 class Float(Value):
     n = None # type: ty.Optional[float]

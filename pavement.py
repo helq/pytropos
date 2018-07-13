@@ -7,6 +7,8 @@ import subprocess
 import sys
 import time
 
+from typing import List
+
 from paver.easy import options, task, needs, consume_args
 from paver.setuputils import install_distutils_tasks
 
@@ -96,9 +98,10 @@ def sdist():
 
 
 @task
-def test():
+@consume_args
+def test(args: List[str]) -> None:
     """Run the unit tests."""
-    raise SystemExit(_test())
+    raise SystemExit(_test(args))
 
 
 @task
