@@ -176,7 +176,7 @@ def doc_watch() -> None:
         raise SystemExit(1)
 
     class RebuildDocsEventHandler(FileSystemEventHandler):  # type: ignore
-        def __init__(self, base_paths: List[str]) -> None:
+        def __init__(self, base_paths: List[bytes]) -> None:
             self.base_paths = base_paths
 
         def dispatch(self, event: Any) -> None:

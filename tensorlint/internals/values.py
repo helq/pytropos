@@ -156,14 +156,11 @@ class Str(Value):
 @addRules()
 class Int(Value):
     n = None  # type: ty.Optional[int]
-
     add_impls = [None]  # type: ty.List[ty.Optional[ty.Type]]
     impls_inherit = ['__radd__', '__rmul__']
-    src_pos = None  # type: ty.Optional[Pos]
 
-    def __init__(self, n: ty.Optional[int] = None, src_pos: ty.Optional[Pos] = None) -> None:
+    def __init__(self, n: ty.Optional[int] = None) -> None:
         self.n = n
-        self.src_pos = src_pos
 
     def __binop(self, op, other: Value, src_pos: ty.Optional[Pos] = None):  # type: ignore
         if isinstance(other, Int):

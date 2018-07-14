@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """Can check for correctness of tensor operations in numpy"""
 
-__all__ = ['base']
-
 from tensorlint import metadata
 
 __version__ = metadata.version

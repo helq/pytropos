@@ -1,21 +1,37 @@
 tensorlint package
 ==================
 
+Subpackages
+-----------
+
+.. toctree::
+
+    tensorlint.internals
+    tensorlint.libs
+
 Submodules
 ----------
 
-tensorlint\.main module
------------------------
+tensorlint.main module
+----------------------
 
 .. automodule:: tensorlint.main
     :members:
     :undoc-members:
     :show-inheritance:
 
-tensorlint\.metadata module
----------------------------
+tensorlint.metadata module
+--------------------------
 
 .. automodule:: tensorlint.metadata
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+tensorlint.translate module
+---------------------------
+
+.. automodule:: tensorlint.translate
     :members:
     :undoc-members:
     :show-inheritance:
