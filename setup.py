@@ -6,7 +6,7 @@ import sys
 import imp
 import subprocess
 
-from typing import List
+from typing import List, Set, TYPE_CHECKING
 
 # TODO(helq): remove
 # # Python 2.6 subprocess.check_output compatibility. Thanks Greg Hewgill!
@@ -44,7 +44,7 @@ DOCS_DIRECTORY = 'docs'
 TESTS_DIRECTORY = 'tests'
 PYTEST_FLAGS = ['--doctest-modules']
 
-use_flake8 = False
+use_flake8 = True
 
 # Import metadata. Normally this would just be:
 #
@@ -57,13 +57,15 @@ use_flake8 = False
 # instead, effectively side-stepping the dependency problem. Please make sure
 # metadata has no dependencies, otherwise they will need to be added to
 # the setup_requires keyword.
-metadata = imp.load_source(
-    'metadata', os.path.join(CODE_DIRECTORY, 'metadata.py'))
+if TYPE_CHECKING:
+    from tensorlint import metadata
+else:
+    metadata = imp.load_source(
+        'metadata', os.path.join(CODE_DIRECTORY, 'metadata.py'))
 
 
 # Miscellaneous helper functions
-
-def get_project_files():
+def get_project_files() -> List[bytes]:
     """Retrieve a list of project files, ignoring hidden files.
 
     :return: sorted list of project files
@@ -81,20 +83,20 @@ def get_project_files():
         for f in files:
             if f.startswith('.'):
                 continue
-            project_files.append(os.path.join(top, f))
+            project_files.append(os.path.join(top, f).encode())
 
     return project_files
 
 
-def is_git_project():
+def is_git_project() -> bool:
     return os.path.isdir('.git')
 
 
-def has_git():
+def has_git() -> bool:
     return bool(spawn.find_executable("git"))
 
 
-def get_git_project_files():
+def get_git_project_files() -> List[bytes]:
     """Retrieve a list of all non-ignored files, including untracked files,
     excluding deleted files.
 
@@ -113,7 +115,7 @@ def get_git_project_files():
     return sorted(cached_and_untracked_files - uncommitted_deleted_files)
 
 
-def git_ls_files(*cmd_args):
+def git_ls_files(*cmd_args: str) -> Set[bytes]:
     """Run ``git ls-files`` in the top-level project directory. Arguments go
     directly to execution call.
 
@@ -125,7 +127,7 @@ def git_ls_files(*cmd_args):
     return set(subprocess.check_output(cmd).splitlines())
 
 
-def print_success_message(message):
+def print_success_message(message: str) -> None:
     """Print a message indicating success in green color to STDOUT.
 
     :param message: the message to print
@@ -138,7 +140,7 @@ def print_success_message(message):
         print(message)
 
 
-def print_failure_message(message):
+def print_failure_message(message: str) -> None:
     """Print a message indicating failure in red color to STDERR.
 
     :param message: the message to print
@@ -152,7 +154,7 @@ def print_failure_message(message):
         print(message, file=sys.stderr)
 
 
-def read(filename):
+def read(filename: str) -> str:
     """Return the contents of a file.
 
     :param filename: file path
@@ -164,28 +166,24 @@ def read(filename):
         return f.read()
 
 
-def _lint():
+def _lint() -> int:
     """Run lint and return an exit code."""
     # Flake8 doesn't have an easy way to run checks using a Python function, so
     # just fork off another process to do it.
 
-    # Python 3 compat:
-    # - The result of subprocess call outputs are byte strings, meaning we need
-    #   to pass a byte string to endswith.
     project_python_files = [filename for filename in get_project_files()
                             if filename.endswith(b'.py')]
     common_args = [b'--exclude=docs/**']
     if use_flake8:
         call_args = \
-            [b'flake8', b'--max-complexity=10'] \
-            + common_args \
+            [b'flake8'] \
             + project_python_files
     else:
         call_args = \
             [b'pycodestyle', b'--statistics'] \
             + common_args \
             + project_python_files
-    call_args = list(map(bytes.decode, call_args))
+    call_args = list(map(bytes.decode, call_args))  # type: ignore
     retcode = subprocess.call(call_args)
     if retcode == 0:
         print_success_message('No style errors')
@@ -202,10 +200,10 @@ def _test(pytest_args: List[str] = []) -> int:
     import pytest
     # This runs the unit tests.
     # It also runs doctest, but only on the modules in TESTS_DIRECTORY.
-    return pytest.main(PYTEST_FLAGS + [TESTS_DIRECTORY] + pytest_args)
+    return pytest.main(PYTEST_FLAGS + [TESTS_DIRECTORY] + pytest_args)  # type: ignore
 
 
-def _test_all():
+def _test_all() -> int:
     """Run lint and tests.
 
     :return: exit code
@@ -219,32 +217,15 @@ def _test_all():
 # run tests is still `paver test_all'.
 # See <http://pythonhosted.org/setuptools/python3.html>
 # Code based on <http://pytest.org/latest/goodpractises.html#integration-with-setuptools-test-commands>  # noqa
-class TestAllCommand(TestCommand):
-    def finalize_options(self):
+class TestAllCommand(TestCommand):  # type: ignore
+    def finalize_options(self) -> None:
         TestCommand.finalize_options(self)
         # These are fake, and just set to appease distutils and setuptools.
         self.test_suite = True
-        self.test_args = []
+        self.test_args  = []  # type: List[str]
 
-    def run_tests(self):
+    def run_tests(self) -> None:
         raise SystemExit(_test_all())
-
-
-# define install_requires for specific Python versions
-python_version_specific_requires = []
-
-# TODO(helq): remove this, the project is only buildable on Python 3.6 or
-# higher, or should be
-# # as of Python >= 2.7 and >= 3.2, the argparse module is maintained within
-# # the Python standard library, otherwise we install it as a separate package
-# if sys.version_info < (2, 7) or (3, 0) <= sys.version_info < (3, 3):
-#     python_version_specific_requires.append('argparse')
-#
-# if sys.version_info < (3, 3):
-#     python_version_specific_requires.append('enum')
-#
-# if sys.version_info < (3, 0):
-#     python_version_specific_requires.append('configparser')
 
 
 # See here for more options:
@@ -275,7 +256,7 @@ setup_dict = dict(
     install_requires=([
         '',
         # your module dependencies
-    ]) + python_version_specific_requires,
+    ]),
 
     # Allow tests to be run with `python setup.py test'.
     tests_require=[
@@ -298,7 +279,7 @@ setup_dict = dict(
 )
 
 
-def main():
+def main() -> None:
     setup(**setup_dict)
 
 

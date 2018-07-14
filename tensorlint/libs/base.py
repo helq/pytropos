@@ -1,11 +1,12 @@
 from tensorlint.internals import Value, Int, Iterable
-from tensorlint.internals.tools import NonImplementedTL
+# from tensorlint.internals.tools import NonImplementedTL
 
 from typing import Optional, Tuple
 
 __all__ = ['range', 'print']
 
-Pos = Tuple[int,int]
+Pos = Tuple[int, int]
+
 
 def range(val: Int,
           val2: Optional[Int] = None,
@@ -15,5 +16,6 @@ def range(val: Int,
     # value passed, it should be an int
     return Iterable(Int())
 
-def print( *args: Value, **kargs: Value ) -> None:
+
+def print(*args: Value, **kargs: Value) -> None:
     pass

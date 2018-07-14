@@ -1,5 +1,4 @@
-from typing import Iterable, Union
-from tensorlint.internals import Value, Any
+from tensorlint.internals import Any
 
 __all__ = ['dummy']
 

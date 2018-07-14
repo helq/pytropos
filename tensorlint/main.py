@@ -4,7 +4,7 @@
 
 from __future__ import print_function
 
-from typing import List, Dict, Any
+from typing import List
 
 import argparse
 import sys
@@ -12,7 +12,7 @@ import sys
 from tensorlint import metadata
 
 
-def main(argv : List[str]) -> int:
+def main(argv: List[str]) -> int:
     """Program entry point.
 
     :param argv: command-line arguments
@@ -23,11 +23,11 @@ def main(argv : List[str]) -> int:
         author_strings.append('Author: {0} <{1}>'.format(name, email))
 
     epilog = (
-      '{project} {version}\n' +
-      '\n' +
-      '{authors}' +
-      'URL: <{url}>)\n'
-      ).format(
+        '{project} {version}\n' +
+        '\n' +
+        '{authors}' +
+        'URL: <{url}>)\n'
+    ).format(
         project=metadata.project,
         version=metadata.version,
         authors='\n'.join(author_strings),
@@ -55,31 +55,31 @@ def main(argv : List[str]) -> int:
     print("Parsing and un-parsing a python file (it should preserve all type comments)")
     from typed_ast import ast3
     from typed_astunparse import unparse
-    from tensorlint.translate import to_tensorlint, to_python_AST
+    from tensorlint.translate import to_tensorlint, to_python_ast
     file = args_parsed.file
     ast_ = ast3.parse(file.read(), filename=file.name)
-    newast = to_tensorlint( ast_ )
+    newast = to_tensorlint(ast_)
 
-    print( "Original file:" )
+    print("Original file:")
     # print( ast3.dump(ast_) )
-    print( unparse( ast_ ) )
-    print( "Modified file:" )
+    print(unparse(ast_))
+    print("Modified file:")
     # print( ast3.dump(newast) )
-    print( unparse( newast ) )
+    print(unparse(newast))
 
     import ast
-    newast_py = ast.fix_missing_locations( to_python_AST(newast) )
+    newast_py = ast.fix_missing_locations(to_python_ast(newast))
     # print( ast.dump(newast_py) )
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
-    tl_globals = {} # type: Dict[str, Any]
+    tl_globals = {}  # type: Dict[str, Any]
     tl_locals = {}  # type: Dict[str, Any]
 
     from tensorlint.internals.tools import NonImplementedTL
     try:
-        exec( newast_comp, tl_globals, tl_locals )
+        exec(newast_comp, tl_globals, tl_locals)
     except NonImplementedTL as msg:
         print("Type checking errors found")
-        print( tl_locals['tl'].errors )
+        print(tl_locals['tl'].errors)
         raise msg
     else:
         print("Everything ok! It type checked!")

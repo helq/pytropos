@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 
-from typing import List
+from typing import List, Any
 
 from paver.easy import options, task, needs, consume_args
 from paver.setuputils import install_distutils_tasks
@@ -27,7 +27,7 @@ install_distutils_tasks()
 # Miscellaneous helper functions
 
 
-def print_passed():
+def print_passed() -> None:
     # generated on http://patorjk.com/software/taag/#p=display&f=Small&t=PASSED
     print_success_message(r'''  ___  _   ___ ___ ___ ___
  | _ \/_\ / __/ __| __|   \
@@ -36,7 +36,7 @@ def print_passed():
 ''')
 
 
-def print_failed():
+def print_failed() -> None:
     # generated on http://patorjk.com/software/taag/#p=display&f=Small&t=FAILED
     print_failure_message(r'''  ___ _   ___ _    ___ ___
  | __/_\ |_ _| |  | __|   \
@@ -50,25 +50,25 @@ class cwd(object):
     as a `pushd /my/dir' then a `popd' at the end.
     """
 
-    def __init__(self, newcwd):
+    def __init__(self, newcwd: str) -> None:
         """:param newcwd: directory to make the cwd
         :type newcwd: :class:`str`
         """
         self.newcwd = newcwd
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         self.oldcwd = os.getcwd()
         os.chdir(self.newcwd)
         return os.getcwd()
 
-    def __exit__(self, type_, value, traceback):
+    def __exit__(self, type_, value, traceback) -> None:  # type: ignore
         # This acts like a `finally' clause: it will always be executed.
         os.chdir(self.oldcwd)
 
 
 # Task-related functions
 
-def _doc_make(*make_args):
+def _doc_make(*make_args: str) -> int:
     """Run make in sphinx' docs directory.
 
     :return: exit code
@@ -90,22 +90,22 @@ def _doc_make(*make_args):
 
 # Tasks
 
-@task
-@needs('doc_html', 'setuptools.command.sdist')
-def sdist():
+@task  # type: ignore
+@needs('doc_html', 'setuptools.command.sdist')  # type: ignore
+def sdist() -> None:
     """Build the HTML docs and the tarball."""
     pass
 
 
-@task
-@consume_args
+@task  # type: ignore
+@consume_args  # type: ignore
 def test(args: List[str]) -> None:
     """Run the unit tests."""
     raise SystemExit(_test(args))
 
 
-@task
-def lint():
+@task  # type: ignore
+def lint() -> None:
     # This refuses to format properly when running `paver help' unless
     # this ugliness is used.
     ('Perform PEP8 style check, run PyFlakes, and run McCabe complexity '
@@ -113,8 +113,8 @@ def lint():
     raise SystemExit(_lint())
 
 
-@task
-def test_all():
+@task  # type: ignore
+def test_all() -> None:
     """Perform a style check and run all unit tests."""
     retcode = _test_all()
     if retcode == 0:
@@ -124,9 +124,9 @@ def test_all():
     raise SystemExit(retcode)
 
 
-@task
-@consume_args
-def run(args):
+@task  # type: ignore
+@consume_args  # type: ignore
+def run(args: List[str]) -> None:
     """Run the package's main script. All arguments are passed to it."""
     # The main script expects to get the called executable's name as
     # argv[0]. However, paver doesn't provide that in args. Even if it did (or
@@ -138,8 +138,8 @@ def run(args):
     raise SystemExit(main([CODE_DIRECTORY] + args))
 
 
-@task
-def commit():
+@task  # type: ignore
+def commit() -> None:
     """Commit only if all the tests pass."""
     if _test_all() == 0:
         subprocess.check_call(['git', 'commit'])
@@ -147,8 +147,8 @@ def commit():
         print_failure_message('\nTests failed, not committing.')
 
 
-@task
-def coverage():
+@task  # type: ignore
+def coverage() -> None:
     """Run tests and show test coverage report."""
     try:
         import pytest_cov  # NOQA
@@ -164,8 +164,8 @@ def coverage():
         TESTS_DIRECTORY])
 
 
-@task  # NOQA
-def doc_watch():
+@task  # type: ignore # NOQA
+def doc_watch() -> None:
     """Watch for changes in the docs and rebuild HTML docs when changed."""
     try:
         from watchdog.events import FileSystemEventHandler
@@ -175,11 +175,11 @@ def doc_watch():
                               "i.e., `pip install watchdog'.")
         raise SystemExit(1)
 
-    class RebuildDocsEventHandler(FileSystemEventHandler):
-        def __init__(self, base_paths):
+    class RebuildDocsEventHandler(FileSystemEventHandler):  # type: ignore
+        def __init__(self, base_paths: List[str]) -> None:
             self.base_paths = base_paths
 
-        def dispatch(self, event):
+        def dispatch(self, event: Any) -> None:
             """Dispatches events to the appropriate methods.
             :param event: The event object representing the file system event.
             :type event: :class:`watchdog.events.FileSystemEvent`
@@ -190,7 +190,7 @@ def doc_watch():
                     # We found one that matches. We're done.
                     return
 
-        def on_modified(self, event):
+        def on_modified(self, event: Any) -> None:
             print_failure_message('Modification detected. Rebuilding docs.')
             # # Strip off the path prefix.
             # import os
@@ -216,9 +216,9 @@ def doc_watch():
         observer.join()
 
 
-@task
-@needs('doc_html')
-def doc_open():
+@task  # type: ignore
+@needs('doc_html')  # type: ignore
+def doc_open() -> None:
     """Build the HTML docs and open them in a web browser."""
     doc_index = os.path.join(DOCS_DIRECTORY, 'build', 'html', 'index.html')
     if sys.platform == 'darwin':
@@ -236,16 +236,16 @@ def doc_open():
                 doc_index))
 
 
-@task
-def get_tasks():
+@task  # type: ignore
+def get_tasks() -> None:
     """Get all paver-defined tasks."""
     from paver.tasks import environment
     for this_task in environment.get_tasks():
         print(this_task.shortname)
 
 
-@task
-def doc_html():
+@task  # type: ignore
+def doc_html() -> None:
     """Build the HTML docs."""
     retcode = _doc_make('html')
 
@@ -253,8 +253,8 @@ def doc_html():
         raise SystemExit(retcode)
 
 
-@task
-def doc_clean():
+@task  # type: ignore
+def doc_clean() -> None:
     """Clean (delete) the built docs."""
     retcode = _doc_make('clean')
 
