@@ -5,11 +5,15 @@
 from __future__ import print_function
 
 from typing import List
+from typing import Dict, Any  # noqa: F401
+from types import CodeType
 
 import argparse
 import sys
 
 from tensorlint import metadata
+
+import traceback
 
 
 def main(argv: List[str]) -> int:
@@ -71,8 +75,24 @@ def main(argv: List[str]) -> int:
     newast_py = ast.fix_missing_locations(to_python_ast(newast))
     # print( ast.dump(newast_py) )
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
+
+    from multiprocessing import Process
+
+    p = Process(
+        target=run_transformed_type_checking_code,
+        args=(newast_comp,)
+    )
+
+    p.start()
+    p.join()
+    # print(tl_locals)
+
+    return p.exitcode  # type: ignore
+
+
+def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
     tl_globals = {}  # type: Dict[str, Any]
-    tl_locals = {}  # type: Dict[str, Any]
+    tl_locals  = {}  # type: Dict[str, Any]
 
     from tensorlint.internals.tools import NonImplementedTL
     try:
@@ -80,13 +100,11 @@ def main(argv: List[str]) -> int:
     except NonImplementedTL as msg:
         print("Type checking errors found")
         print(tl_locals['tl'].errors)
-        raise msg
+        print()
+        traceback.print_exc()
+        raise SystemExit(1)
     else:
         print("Everything ok! It type checked!")
-
-    # print(tl_locals)
-
-    return 0
 
 
 def entry_point() -> None:

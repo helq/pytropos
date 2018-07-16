@@ -195,12 +195,18 @@ def _test(pytest_args: List[str] = []) -> int:
 
     :return: exit code
     """
+    ignore_dirs = ['tests/example_code']
     # Make sure to import pytest in this function. For the reason, see here:
     # <http://pytest.org/latest/goodpractises.html#integration-with-setuptools-test-commands>  # noqa
     import pytest
     # This runs the unit tests.
     # It also runs doctest, but only on the modules in TESTS_DIRECTORY.
-    return pytest.main(PYTEST_FLAGS + [TESTS_DIRECTORY] + pytest_args)  # type: ignore
+    return pytest.main(  # type: ignore
+        PYTEST_FLAGS +
+        [TESTS_DIRECTORY,
+         '--ignore='+','.join(ignore_dirs)
+         ] +
+        pytest_args)
 
 
 def _test_all() -> int:

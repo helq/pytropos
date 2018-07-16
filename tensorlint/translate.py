@@ -228,6 +228,11 @@ def __ast_transformation_after(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]: 
     # account if it is telling us something about the type of the tensor
     elif isinstance(v, ast3.AnnAssign):
         return ast3.Assign(targets=[v.target], value=v.value)
+
+    # Revoming type comment
+    if hasattr(v, 'type_comment'):
+        setattr(v, 'type_comment', None)
+
     # To see the errors generated in execution run the code in this manner:
     # $ python -i -m tensorlint.main file.py
     # > import tensorlint.translate as tt

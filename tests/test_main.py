@@ -5,8 +5,7 @@ import pytest
 from tensorlint import metadata
 from tensorlint.main import main
 
-from typing import Any
-from typing import Tuple  # noqa: F401
+from typing import Any, Tuple
 
 
 # The parametrize function is generated, so this doesn't work:
@@ -40,3 +39,23 @@ class TestMain(object):
         assert out == '{0} {1}\n'.format(metadata.project, metadata.version)
         # Should exit with zero return code.
         assert exc_info.value.code == 0
+
+    @parametrize('fileargs', [  # type: ignore
+        ('tests/example_code/01-adding-mypy-types-fail.py', False),
+        ('tests/example_code/02-number-inside-for-loop-fail.py', False),
+        ('tests/example_code/03-number-inside-for-loop-success.py', True),
+    ])
+    def test_fail_and_success_in_examples(self, fileargs: Tuple[str, bool]) -> None:
+        filepath, exit_alright = fileargs
+
+        exit_value = main(['progname', filepath])
+
+        # Should exit with zero return code if everything type checked, it
+        # shouldn't otherwise.
+        assert (exit_value == 0) == exit_alright
+
+        # there shouldn't be any trash after the generated code is executed,
+        # everything should be encapsuled
+        import tensorlint as tl
+        assert len(tl.errors) == 0
+        assert len(tl.warnings) == 0
