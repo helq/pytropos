@@ -22,7 +22,7 @@ class TestIntFloat(object):
     @given(st.integers())  # type: ignore
     def test_val_preserved(self, i: int) -> None:
         for klass in [Int, Float]:
-            assert i == klass(i).n
+            assert i == klass(i).n  # type: ignore # this is actually true for Int and Floats
 
     @given(st.integers(), st.integers())  # type: ignore
     def test_op_int(self, i: int, j: int) -> None:

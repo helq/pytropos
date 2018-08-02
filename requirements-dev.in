@@ -3,6 +3,7 @@
 
 # Testing
 pytest
+pytest-mypy
 py
 hypothesis
 

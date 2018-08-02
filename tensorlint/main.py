@@ -92,14 +92,16 @@ def main(argv: List[str]) -> int:
 
 def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
     tl_globals = {}  # type: Dict[str, Any]
-    tl_locals  = {}  # type: Dict[str, Any]
+    # tl_locals  = {}  # type: Dict[str, Any]
 
     from tensorlint.internals.tools import NonImplementedTL
     try:
-        exec(newast_comp, tl_globals, tl_locals)
+        # at the module level, locals and globals are the same
+        # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
+        exec(newast_comp, tl_globals)
     except NonImplementedTL as msg:
         print("Type checking errors found")
-        print(tl_locals['tl'].errors)
+        print(tl_globals['tl'].errors)
         print()
         traceback.print_exc()
         raise SystemExit(1)

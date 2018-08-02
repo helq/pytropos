@@ -204,7 +204,8 @@ def _test(pytest_args: List[str] = []) -> int:
     return pytest.main(  # type: ignore
         PYTEST_FLAGS +
         [TESTS_DIRECTORY,
-         '--ignore='+','.join(ignore_dirs)
+         '--ignore='+','.join(ignore_dirs),
+         '--mypy'
          ] +
         pytest_args)
 
