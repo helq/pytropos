@@ -44,6 +44,9 @@ def flatten(lst: List[Union[T, list]]) -> List[T]:
     return toret
 
 
+TransformationFun = Callable[[ast3.AST], Union[ast3.AST, List[ast3.AST]]]
+
+
 # walk_ast(tree) returns a copy of the tree
 # the function f_before and f_after take an AST and return the AST modified as they
 # please, there is no need for them to traverse the structure, walk_ast does that for
@@ -53,8 +56,8 @@ def flatten(lst: List[Union[T, list]]) -> List[T]:
 # valid and it will be the same result in the end.
 def walk_ast(
         tree:     ast3.AST,
-        f_before: Optional[Callable[[ast3.AST], Any]] = None,
-        f_after:  Optional[Callable[[ast3.AST], Any]] = None,
+        f_before: Optional[TransformationFun] = None,
+        f_after:  Optional[TransformationFun] = None,
         verbose:  bool = False
 ) -> ast3.AST:
 
@@ -70,13 +73,19 @@ def walk_ast(
             return walk_ast(v, f_before, f_after, verbose)
         raise AstAttributeUnknown("The type '{}' is unknown to me".format(type(v)))
 
+    # walking up the tree
     if f_before is not None:
         # making a copy of the tree, let the original not be modified
         # TODO(helq): make it possible to create the copy only when necessary (how?)
         tree_copy = walk_ast(tree)
-        tree = f_before(tree_copy)
+        new_tree = f_before(tree_copy)
+        assert not isinstance(new_tree, list), \
+            "Error! The node transformation has produced a List of nodes," \
+            " not a single node. :S"
+        tree = new_tree
 
     klass = type(tree)
+    # walking down the tree
     new_attrs = {n: walk_helper(a) for n, a in tree.__dict__.items()}
 
     if f_after is None:
@@ -98,7 +107,7 @@ class InternalWarning(object):
 internal_warnings: List[InternalWarning] = []
 
 
-def __ast_transformation_before(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]:
+def __augassign_transformation_before(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
     if isinstance(v, ast3.AugAssign):
         if isinstance(v.op, ast3.Add):
             if isinstance(v.target, ast3.Name):
@@ -119,13 +128,10 @@ def __ast_transformation_before(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]:
                     col_offset=v.col_offset
                 ),
                 type_comment=None)
-    return v
+    return None
 
 
-def __ast_transformation_after(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]:  # noqa: C901
-    # this needs to be done in the upward walk because it creates a copy of itself
-    # down the tree. It would recurse indefinitely if it were executed in the downward
-    # pass
+def __num_transformation(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
     if isinstance(v, ast3.Num):
         if isinstance(v.n, (int, float)):
             attr = 'Int' if isinstance(v.n, int) else 'Float'
@@ -136,7 +142,11 @@ def __ast_transformation_after(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]: 
                     attr=attr,
                     ctx=ast3.Load()),
                 args=[ast3.Num(n=v.n)], keywords=[])
-    elif isinstance(v, ast3.Import):
+    return None
+
+
+def __import_transformation(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
+    if isinstance(v, ast3.Import):
         modules_supported:    List[Tuple[str, Optional[str]]] = []
         modules_notsupported: List[Tuple[str, Optional[str]]] = []
         for alias in v.names:
@@ -165,8 +175,12 @@ def __ast_transformation_after(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]: 
             )
 
         return libs
+    return None
+
+
+def __for_transformation(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
     # converting `for i in range(10)` into `with for_loop(range(10)) as (i, tl)`
-    elif isinstance(v, ast3.For):
+    if isinstance(v, ast3.For):
         return ast3.With(
             items=[
                 ast3.withitem(
@@ -180,7 +194,11 @@ def __ast_transformation_after(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]: 
                     optional_vars=ast3.Name(id='i', ctx=ast3.Store()))],
             body=v.body,
             type_comment=None)
-    elif isinstance(v, ast3.BinOp):
+    return None
+
+
+def __binop_transformation(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
+    if isinstance(v, ast3.BinOp):
         # Converting a binary operation `5 + a` into a function call
         # with an additional parameter `src_pos`:
         # (5).__add__(a, src_pos=(20, 5))
@@ -207,8 +225,12 @@ def __ast_transformation_after(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]: 
                         ctx=ast3.Load()
                     )
                 ])
+    return None
+
+
+def __call_transformation(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
     # TODO(helq): ibid from above (deactivate this transformation)
-    elif isinstance(v, ast3.Call):  # and False:
+    if isinstance(v, ast3.Call):  # and False:
         # adding an attribute to the function call `src_pos`, the position
         # of the function call in the original code
         v.keywords.append(
@@ -223,24 +245,49 @@ def __ast_transformation_after(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]: 
             )
         )
         return v
-    # removing annotation from Annotated Assignment
+    return None
+
+
+def __annassign_transformation(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
     # TODO(helq): in the future, the annotation should be taken into
     # account if it is telling us something about the type of the tensor
-    elif isinstance(v, ast3.AnnAssign):
+    if isinstance(v, ast3.AnnAssign):
         return ast3.Assign(targets=[v.target], value=v.value)
+    return None
 
+
+# TODO(helq): careful if you change something in walk, this updates the value
+# in place, this is "dirty"
+def __type_comment_transformation(v: ast3.AST) -> Union[None, ast3.AST, List[ast3.AST]]:
     # Revoming type comment
     if hasattr(v, 'type_comment'):
         setattr(v, 'type_comment', None)
-
-    # To see the errors generated in execution run the code in this manner:
-    # $ python -i -m tensorlint.main file.py
-    # > import tensorlint.translate as tt
-    # > for i in tt.internal_warnings:
-    # ...  print(i)
-    internal_warnings.append(InternalWarning(
-        "There is no rule for this kind of AST node: `{}`".format(type(v))))
     return v
+
+
+def combine_transformations(
+        trans_list: List[Callable[[ast3.AST], Union[ast3.AST, List[ast3.AST], None]]]
+) -> Callable[[ast3.AST], Union[ast3.AST, List[ast3.AST]]]:
+    def new_trans(v: ast3.AST) -> Union[ast3.AST, List[ast3.AST]]:
+        new_node = None  # type: Union[None, ast3.AST, List[ast3.AST]]
+        for trans in trans_list:
+            new_node = trans(v)
+            if new_node is not None:
+                return new_node
+
+        # To see the errors generated in execution run the code in this manner:
+        # $ python -i -m tensorlint.main file.py
+        # > import tensorlint.translate as tt
+        # > for i in tt.internal_warnings:
+        # ...  print(i)
+        # This is a list of Nodes that have been totally checked!!
+        if type(v) not in [ast3.Import, ast3.For, ast3.Call, ast3.AnnAssign]:
+            internal_warnings.append(InternalWarning(
+                "There is no rule for this kind of AST node: `{}`".format(type(v))))
+
+        return v
+
+    return new_trans
 
 
 def to_tensorlint(tree: ast3.AST) -> ast3.AST:
@@ -248,8 +295,20 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
     # get how to write by hand a part of the tree (AST)
     new_ast = walk_ast(
         tree,
-        f_before=__ast_transformation_before,
-        f_after=__ast_transformation_after,
+        f_before=combine_transformations(
+            [__augassign_transformation_before,
+             ]
+        ),
+        f_after=combine_transformations(
+            [__num_transformation,
+             __import_transformation,
+             __for_transformation,
+             __binop_transformation,
+             __call_transformation,          # can be used down or up walk
+             __annassign_transformation,     # can be executed on down and up walk
+             __type_comment_transformation,  # can be executed on down and up walk
+             ]
+        ),
         verbose=False)
 
     # adding imports to the start of the file
