@@ -178,6 +178,9 @@ class Int(Value):
     def __repr__(self) -> str:
         return "Int("+repr(self.n)+")"
 
+    def __eq__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+        return self.__binop(operator.eq, other, src_pos)  # type: ignore
+
 
 # TODO(helq): add warning when operating with nan values
 @addRules()

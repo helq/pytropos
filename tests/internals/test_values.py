@@ -12,19 +12,19 @@ from typing import Optional
 import typing as ty
 
 ints_st = st.one_of(st.integers(), st.none())
-floats_st = st.one_of(st.floats(), st.none())
+floats_st = st.one_of(st.floats(), st.none())  # type: ignore
 
 value_ops = [add, mul]
 
 
 # General test for Int and Float
 class TestIntFloat(object):
-    @given(st.integers())  # type: ignore
+    @given(st.integers())
     def test_val_preserved(self, i: int) -> None:
         for klass in [Int, Float]:
             assert i == klass(i).n  # type: ignore # this is actually true for Int and Floats
 
-    @given(st.integers(), st.integers())  # type: ignore
+    @given(st.integers(), st.integers())
     def test_op_int(self, i: int, j: int) -> None:
         """
         This test basically checks that doing something like this:
@@ -35,7 +35,7 @@ class TestIntFloat(object):
             assert op(i, j) == op(Int(i), Int(j)).n
 
     # @given(i=infer, j=infer)
-    @given(st.builds(Int, ints_st),  # type: ignore
+    @given(st.builds(Int, ints_st),
            st.builds(Int, ints_st))
     def test_int_adding(self, i: Int, j: Int) -> None:
         """
@@ -47,7 +47,7 @@ class TestIntFloat(object):
             assert isinstance(op(i, j), Int)
 
     @given(st.floats(allow_nan=False, allow_infinity=False),  # type: ignore
-           st.floats(allow_nan=False, allow_infinity=False))
+           st.floats(allow_nan=False, allow_infinity=False))  # type: ignore
     def test_op_float(self, i: float, j: float) -> None:
         """
         This test basically checks that doing something like this:
@@ -57,7 +57,7 @@ class TestIntFloat(object):
         for op in value_ops:
             assert op(i, j) == op(Float(i), Float(j)).n
 
-    @given(ints_st, ints_st)  # type: ignore
+    @given(ints_st, ints_st)
     def test_float_adding(self, i: Optional[float], j: Optional[float]) -> None:
         """
         Any value that implements add and mul must preserve the original
@@ -75,13 +75,13 @@ class TestIntFloat(object):
             assert op(i, j) == op(Int(i), Float(j)).n
             assert op(j, i) == op(Float(j), Int(i)).n
 
-    @given(ints_st, floats_st)  # type: ignore
+    @given(ints_st, floats_st)
     def test_float_from_operating_int_with_float(
             self, i: Optional[int], j: Optional[float]) -> None:
         for op in value_ops:
             assert isinstance(op(Int(i), Float(j)), Float)
 
-    @given(ints_st, floats_st)  # type: ignore
+    @given(ints_st, floats_st)
     def test_none_affects_everything(
             self, i: Optional[int], j: Optional[float]) -> None:
         for op in value_ops:
@@ -93,7 +93,7 @@ class TestIntFloat(object):
 
 almost_anything = \
     st.one_of(
-        st.floats(),
+        st.floats(),  # type: ignore
         st.integers(),
         st.none(),
         st.characters(),
@@ -103,7 +103,7 @@ almost_anything = \
 almost_any_value = \
     st.one_of(
         st.builds(Int, st.integers()),
-        st.builds(Float, st.floats()),
+        st.builds(Float, st.floats()),  # type: ignore
         st.builds(Any),
         st.builds(Str, st.characters()),
     )
@@ -114,7 +114,7 @@ class TestAny(object):
     Testing all properties of Any
     """
 
-    @given(args=st.lists(almost_anything),  # type: ignore
+    @given(args=st.lists(almost_anything),
            kargs=st.dictionaries(st.characters(), almost_anything))
     def test_any_is_callable(self,
                              args: ty.List[Any],
@@ -127,7 +127,7 @@ class TestAny(object):
         assert isinstance(Any()(*args), Any)
         assert isinstance(Any()(**kargs), Any)
 
-    @given(almost_any_value)  # type: ignore
+    @given(almost_any_value)
     def test_any_operated_with_any_other_value_results_in_any(
             self,
             value: Value
