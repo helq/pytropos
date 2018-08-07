@@ -1,13 +1,16 @@
-from typing import Optional, List, Union, Tuple, Any, Dict
+from typing import Optional, List, Tuple, Any, Dict
 from typed_ast import ast3
 import re
 
 from .binops import operations
-from .base import AstAttributeUnknown
+from .base import (
+    AstAttributeUnknown,
+    OutputTrans,
+    # AddParams
+)
 
 # A non-complete transformation function (with additional None output)
-OutputPartialTrans = Optional[Tuple[Union[ast3.AST, List[ast3.AST]], Optional[Dict[str, Any]]]]
-# InputPartialTrans = [ast3.AST, Dict[str, Any]]
+# InputPartialTrans = [ast3.AST, AddParams]
 
 # TODO(helq): add trick to documentation, use ast3.dump(ast3.parse('expr').body[0]) to
 # get how to write by hand a part of the tree (AST)
@@ -16,17 +19,17 @@ OutputPartialTrans = Optional[Tuple[Union[ast3.AST, List[ast3.AST]], Optional[Di
 def checking_add_params(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     # print(ast3.dump(v))
     print("{}:".format(type(v).__name__))
     print("   ", add_params)
-    return None
+    return []
 
 
 def augassign_transformation_before(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     if isinstance(v, ast3.AugAssign):
         op = type(v.op)
         if isinstance(v.target, ast3.Name):
@@ -47,14 +50,14 @@ def augassign_transformation_before(
                 col_offset=v.col_offset
             ),
             type_comment=None)
-        return new_v, None
-    return None
+        return [(new_v, None)]
+    return []
 
 
 def num_transformation(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     if isinstance(v, ast3.Num):
         if isinstance(v.n, (int, float)):
             attr = 'Int' if isinstance(v.n, int) else 'Float'
@@ -65,14 +68,14 @@ def num_transformation(
                     attr=attr,
                     ctx=ast3.Load()),
                 args=[ast3.Num(n=v.n)], keywords=[])
-            return new_v, None
-    return None
+        return [(new_v, None)]
+    return []
 
 
 def import_transformation(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     if isinstance(v, ast3.Import):
         modules_supported:    List[Tuple[str, Optional[str]]] = []
         modules_notsupported: List[Tuple[str, Optional[str]]] = []
@@ -101,14 +104,14 @@ def import_transformation(
                     level=0)
             )
 
-        return libs, None
-    return None
+        return [(l, None) for l in libs]
+    return []
 
 
 def for_transformation(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     # converting `for i in range(10)` into `with for_loop(range(10)) as (i, tl)`
     if isinstance(v, ast3.For):
         new_v = ast3.With(
@@ -124,14 +127,14 @@ def for_transformation(
                     optional_vars=ast3.Name(id='i', ctx=ast3.Store()))],
             body=v.body,
             type_comment=None)
-        return new_v, None
-    return None
+        return [(new_v, None)]
+    return []
 
 
 def binop_transformation(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     if isinstance(v, ast3.BinOp):
         # Converting a binary operation `5 + a` into a function call
         # with an additional parameter `src_pos`:
@@ -166,14 +169,14 @@ def binop_transformation(
                     ctx=ast3.Load()
                 )
             ])
-        return new_v, None
-    return None
+        return [(new_v, None)]
+    return []
 
 
 def call_transformation(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     # TODO(helq): ibid from above (deactivate this transformation)
     if isinstance(v, ast3.Call):  # and False:
         # adding an attribute to the function call `src_pos`, the position
@@ -189,20 +192,20 @@ def call_transformation(
                 ctx=ast3.Load()
             )
         )
-        return v, None
-    return None
+        return [(v, None)]
+    return []
 
 
 def del_annassign_transformation(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     # TODO(helq): in the future, the annotation should be taken into
     # account if it is telling us something about the type of the tensor
     if isinstance(v, ast3.AnnAssign):
         new_v = ast3.Assign(targets=[v.target], value=v.value)
-        return new_v, None
-    return None
+        return [(new_v, None)]
+    return []
 
 
 # TODO(helq): careful if you change something in walk, this updates the value
@@ -210,12 +213,12 @@ def del_annassign_transformation(
 def del_type_comment_transformation(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     # Revoming type comment
     if hasattr(v, 'type_comment'):
         setattr(v, 'type_comment', None)
 
-    return v, None
+    return [(v, None)]
 
 
 # TODO(helq): improve how combine_transformations works. Right now, this must
@@ -223,7 +226,7 @@ def del_type_comment_transformation(
 def put_vault_id_params(
         v: ast3.AST,
         add_params: Optional[Dict[str, Any]]
-) -> OutputPartialTrans:
+) -> OutputTrans:
     if add_params is not None:
         if 'vault_id' not in add_params and isinstance(v, ast3.Module):
             add_params['vault_id'] = 0
@@ -238,8 +241,8 @@ def put_vault_id_params(
             add_params["parent_node"] = add_params["me_node"]
         add_params["me_node"] = v
 
-        return v, add_params
-    return v, None
+        return [(v, add_params)]
+    return [(v, None)]
 
 
 trans = re.compile("transformation|params")

@@ -43,9 +43,27 @@ def flatten(lst: List[Union[T, list]]) -> List[T]:
 
 
 # A transformation function, takes two parameters and returns them (possibly) changed
-AdditionalParams = Dict[str, Any]
-TransformationFun = Callable[[ast3.AST, Optional[AdditionalParams]],
-                             Tuple[Union[ast3.AST, List[ast3.AST]], Optional[AdditionalParams]]]
+AddParams = Optional[Dict[str, Any]]
+OutputTrans = List[Tuple[ast3.AST, AddParams]]
+TransformationFun = Callable[[ast3.AST, AddParams], OutputTrans]
+
+
+def copy_tree(tree: ast3.AST) -> ast3.AST:
+
+    def copy_helper(v: Any) -> Any:
+        if isinstance(v, list):
+            return flatten([copy_helper(x) for x in v])
+        if isinstance(v, (str, int, float)) or v is None:
+            return v
+        if isinstance(v, ast3.AST):
+            return copy_tree(v)
+        raise AstAttributeUnknown("The type '{}' is unknown to me".format(type(v)))
+
+    klass = type(tree)
+    # walking up the tree
+    new_attrs = {n: copy_helper(a) for n, a in tree.__dict__.items()}
+
+    return klass(**new_attrs)
 
 
 # walk_ast(tree) returns a copy of the tree
@@ -61,66 +79,114 @@ def walk_ast(
         f_after:  Optional[TransformationFun] = None,
         verbose:  bool = False,
         add_params: Dict[str, Any] = {},
-) -> ast3.AST:
+) -> List[ast3.AST]:
 
     if verbose:
         print("Type of tree:", type(tree))
 
-    def walk_helper(v: Any, add_params: Optional[AdditionalParams]) -> Any:
+    def walk_helper(v: Any, add_params: AddParams) -> Any:
         if isinstance(v, list):
             return flatten([walk_helper(x, add_params) for x in v])
         if isinstance(v, (str, int, float)) or v is None:
             return v
         if isinstance(v, ast3.AST):
             if add_params is None:
-                return walk_ast(v, f_before, f_after, verbose)
-            return walk_ast(v, f_before, f_after, verbose, add_params)
+                list_ast = walk_ast(v, f_before, f_after, verbose)
+            else:
+                list_ast = walk_ast(v, f_before, f_after, verbose, add_params)
+
+            assert len(list_ast) == 1, \
+                "I was expecting the transformation to only give ONE result," \
+                " it gave {}".format(len(list_ast))
+
+            return list_ast[0]
+
         raise AstAttributeUnknown("The type '{}' is unknown to me".format(type(v)))
 
-    new_params = add_params  # type: AdditionalParams
-    # walking down the tree
+    # while walking down the tree
     if f_before is not None:
         # making a copy of the tree, let the original not be modified
         # TODO(helq): make it possible to create the copy only when necessary (how?)
-        tree_copy = walk_ast(tree)
-        new_tree, new_params_ = f_before(tree_copy, add_params.copy())
-        new_params = add_params if new_params_ is None else new_params_
+        tree_copy = copy_tree(tree)
+        new_trees = f_before(tree_copy, add_params.copy())
         # print(add_params)
         # print(new_params)
-
-        assert not isinstance(new_tree, list), \
-            "Error! The node transformation has produced a List of nodes," \
-            " not a single node. :S"
-        tree = new_tree
-
-    klass = type(tree)
-    # walking up the tree
-    new_attrs = {n: walk_helper(a, new_params.copy()) for n, a in tree.__dict__.items()}
-
-    if f_after is None:
-        return klass(**new_attrs)
     else:
-        new_tree, _ = f_after(klass(**new_attrs), new_params.copy())
-        return new_tree  # type: ignore
+        new_trees = [(tree, add_params)]
+
+    trees_to_ret = []  # type: List[ast3.AST]
+    for tree_, params in new_trees:
+        assert params is not None, \
+            "There should be additional params when going down the tree"
+        klass = type(tree_)
+
+        # while walking up the tree
+        # creating a new node with the old parameters
+        new_attrs = {n: walk_helper(a, params.copy()) for n, a in tree.__dict__.items()}
+
+        new_node = klass(**new_attrs)
+
+        if f_after is None:
+            trees_to_ret.append(new_node)
+        else:
+            more_new_trees = f_after(new_node, params.copy())
+            trees_to_ret.extend([t for t, _ in more_new_trees])
+
+    return trees_to_ret
 
 
-# A non-complete transformation function (with additional None output)
-OutputPartialTrans = Optional[Tuple[Union[ast3.AST, List[ast3.AST]], Optional[Dict[str, Any]]]]
-TransformationFun_ = Callable[[ast3.AST, Optional[Dict[str, Any]]], OutputPartialTrans]
+def applyPartialTrans(
+        trans_fun: TransformationFun,
+        nodes: List[Tuple[bool, ast3.AST, AddParams]]
+) -> Optional[List[Tuple[bool, ast3.AST, AddParams]]]:
+    transformed = False
+    new_nodes = []  # type: List[Tuple[bool, ast3.AST, AddParams]]
+    for node in nodes:
+        trans, v, params = node
+        if trans:
+            new_nodes.append(node)
+        else:
+            new_node = trans_fun(v, params)
+            if len(new_node) > 0:
+                transformed = True
+                new_nodes.extend([(True, v_, params_) for v_, params_ in new_node])
+
+    if transformed:
+        return new_nodes
+    return None
 
 
 def combine_transformations(
-        trans_list: List[TransformationFun_]
+        trans_list_list: List[List[TransformationFun]]
 ) -> TransformationFun:
     def new_trans(
             v: ast3.AST,
             add_params: Optional[Dict[str, Any]]
-    ) -> Tuple[Union[ast3.AST, List[ast3.AST]], Optional[Dict[str, Any]]]:
-        new_node = None  # type: OutputPartialTrans
-        for trans in trans_list:
-            new_node = trans(v, add_params)
-            if new_node is not None:
-                return new_node
+    ) -> OutputTrans:
+        transformed = False
+
+        # the first boolean value tells us if some transformation has been done on the node
+        output = [(False, v, add_params)]  # type: List[Tuple[bool, ast3.AST, AddParams]]
+
+        for trans_list in trans_list_list:
+            # if some node has been transformed, reseting its value to not
+            # transformed to try a new transformation list
+            if transformed:
+                output = [(False, v_, pms) for _, v_, pms in output]
+            for trans_fun in trans_list:
+                new_output = applyPartialTrans(trans_fun, output)
+
+                if new_output is not None:
+                    output = new_output
+                    transformed = True
+
+                    all_transformed = all(t for t, _, _ in output)
+                    if all_transformed:
+                        # Now that all nodes have been transformed, stop trying more transformations
+                        break
+
+        if transformed:
+            return [(v_, pms) for _, v_, pms in output]
 
         # To see the errors generated in execution run the code in this manner:
         # $ python -i -m tensorlint.main file.py
@@ -132,6 +198,6 @@ def combine_transformations(
             internal_warnings.append(InternalWarning(
                 "There is no rule for this kind of AST node: `{}`".format(type(v))))
 
-        return v, add_params
+        return [(v, add_params)]
 
     return new_trans
