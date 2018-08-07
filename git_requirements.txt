@@ -1,0 +1,5 @@
+# git version of typed-astunparse while the patch reaches the official distribution
+# channel
+#typed-astunparse
+git+ssh://git@github.com/simonpercivall/astunparse.git@72bcac2fc408408c7cd07043c392fd9932714604
+git+ssh://git@github.com/helq/typed-astunparse.git@16c088066af5934238581d5a4971b776fed6c13b
