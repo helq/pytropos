@@ -20,10 +20,10 @@ class TL_TypeError(object):
 
     def __repr__(self) -> str:
         return (
-            "tl.TL_TypeError(" +  # noqa: W504
-            repr(self.msg) + ', ' +  # noqa: W504
-            repr(self.lineno) + ', ' +  # noqa: W504
-            repr(self.col_offset) +  # noqa: W504
+            "tl.TL_TypeError(" +
+            repr(self.msg) + ', ' +
+            repr(self.lineno) + ', ' +
+            repr(self.col_offset) +
             ')')
 
 

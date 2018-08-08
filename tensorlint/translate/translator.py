@@ -12,6 +12,7 @@ from .transformations import (
     del_annassign_transformation,
     del_type_comment_transformation,
     put_vault_id_params,
+    name_to_vault_transformation
 )
 
 __all__ = ["to_tensorlint"]
@@ -22,8 +23,9 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
         tree,
         f_before=combine_transformations([[
             augassign_transformation_before,
+        ], [
             put_vault_id_params,
-        ]]),
+        ]], 'f_before'),
         f_after=combine_transformations([[
             # checking_add_params,
             num_transformation,
@@ -32,24 +34,30 @@ def to_tensorlint(tree: ast3.AST) -> ast3.AST:
             binop_transformation,
             call_transformation,
         ], [
+            name_to_vault_transformation,
+        ], [
             del_annassign_transformation,
             del_type_comment_transformation,
-        ]
-        ]),
+        ]], 'f_after'),
+        # ]], 'f_after', verbose=True),
         verbose=False)
 
     assert len(list_ast) == 1, \
         "AST transformation of the module didn't give only ONE result," \
         " it gave {}".format(len(list_ast))
 
-    new_ast = list_ast[0]
+    new_ast: ast3.Module
+    new_ast = list_ast[0]  # type: ignore
 
     # adding imports to the start of the file
-    new_ast.body = (  # type: ignore
+    new_ast.body = (
         ast3.parse(  # type: ignore
             'import tensorlint as tl\n'
-            # 'from tensorlint.libs.base import *\n'
+            # 'tl.Any.error_when_used = True\n'
+            'import tensorlint.libs.base\n'
             'vau = tl.Vault()\n'
-        ).body +  # noqa: W504
-        new_ast.body)  # type: ignore
+            'vau.load_module(tensorlint.libs.base)\n'
+        ).body +
+        new_ast.body
+    )
     return new_ast

@@ -65,15 +65,17 @@ def main(argv: List[str]) -> int:
     newast = to_tensorlint(ast_)
 
     print("Original file:")
-    # print( ast3.dump(ast_) )
+    # print(ast3.dump(ast_))
     print(unparse(ast_))
     print("Modified file:")
-    # print( ast3.dump(newast) )
+    # print(ast3.dump(newast))
     print(unparse(newast))
 
     import ast
     newast_py = ast.fix_missing_locations(to_python_ast(newast))
-    # print( ast.dump(newast_py) )
+    # print(ast.dump(newast_py))
+    # import astpretty
+    # astpretty.pprint(newast_py)
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
 
     from multiprocessing import Process
@@ -99,7 +101,7 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
         # at the module level, locals and globals are the same
         # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
         exec(newast_comp, tl_globals)
-    except NonImplementedTL as msg:
+    except NonImplementedTL:
         print("Type checking errors found")
         print(tl_globals['tl'].errors)
         print()

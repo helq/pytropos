@@ -4,7 +4,7 @@ import numpy as np
 a = np.zeros( (10,5) )
 
 m = 6 + 1
-n = 0 + 0.0  # should fail here
+n = 0 + 0.0
 for i in range(6):
     n += i
 

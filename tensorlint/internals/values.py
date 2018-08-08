@@ -120,6 +120,19 @@ def addRules(debug: bool = False) -> ty.Callable[[ty.Type], ty.Type]:
 # TODO(helq): Implement all methods special method names
 # https://docs.python.org/3/reference/datamodel.html#special-method-names
 class Any(Value):
+    error_when_used = False
+
+    def checkErrorIfUsed(self) -> None:
+        if Any.error_when_used:
+            raise Exception("Trying to use Any value")
+
+    def __init__(self, *args: ty.Any, **kargs: ty.Any) -> None:
+        if len(args) > 0:
+            if Any.error_when_used:
+                raise Exception("Trying to construct Any value (with parms: {})".format(repr(args)))
+        if Any.error_when_used:
+            raise Exception("Trying to construct Any value")
+
     def __repr__(self) -> str:
         return "Any()"
 
