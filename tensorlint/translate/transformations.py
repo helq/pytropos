@@ -12,8 +12,10 @@ from .base import (
 # A non-complete transformation function (with additional None output)
 # InputPartialTrans = [ast3.AST, AddParams]
 
-# TODO(helq): add trick to documentation, use ast3.dump(ast3.parse('expr').body[0]) to
-# get how to write by hand a part of the tree (AST)
+# TODO(helq): add trick to documentation, use:
+# > from tensorlint.translate.tools import pprint_ast_expr
+# > pprint_ast_expr('expr')
+# to get how to write by hand a part of the tree (AST)
 
 
 def checking_add_params(
@@ -137,7 +139,7 @@ def binop_transformation(
     if isinstance(v, ast3.BinOp):
         # Converting a binary operation `5 + a` into a function call
         # with an additional parameter `src_pos`:
-        # (5).__add__(a, src_pos=(20, 5))
+        # tl.add(5, a, src_pos=(20, 5))
         # TODO(helq): allow a way to deactivate this transformation, when
         # this transformation is deactivated the resulting code is more
         # readable but it is impossible to know where was the original line
@@ -151,8 +153,15 @@ def binop_transformation(
         op_str = operations[op_type]
 
         new_v = ast3.Call(
-            func=ast3.Attribute(value=v.left, attr=op_str, ctx=ast3.Load()),
-            args=[v.right], keywords=[
+            func=ast3.Attribute(
+                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                attr=op_str,
+                ctx=ast3.Load()),
+            args=[
+                v.left,
+                v.right
+            ],
+            keywords=[
                 ast3.keyword(
                     arg='src_pos',
                     value=ast3.Tuple(
@@ -160,11 +169,6 @@ def binop_transformation(
                               ast3.Num(v.col_offset)],
                         ctx=ast3.Load()
                     ),
-                    ctx=ast3.Load()
-                ),
-                ast3.keyword(
-                    arg='rev',
-                    value=ast3.NameConstant(True),
                     ctx=ast3.Load()
                 )
             ])

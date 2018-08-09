@@ -5,7 +5,8 @@ from hypothesis import given
 import hypothesis.strategies as st
 # from hypothesis import infer
 
-from operator import add, mul
+import tensorlint.internals.operations as tlo
+import operator as ops
 # from itertools import product
 
 from typing import Optional
@@ -14,7 +15,10 @@ import typing as ty
 ints_st = st.one_of(st.integers(), st.none())
 floats_st = st.one_of(st.floats(), st.none())  # type: ignore
 
-value_ops = [add, mul]
+value_ops = [
+    (ops.add, tlo.add),
+    (ops.mul, tlo.mul)
+]
 
 
 # General test for Int and Float
@@ -28,11 +32,11 @@ class TestIntFloat(object):
     def test_op_int(self, i: int, j: int) -> None:
         """
         This test basically checks that doing something like this:
-        Int(3) + Int(5) == Int(8)
+        add(Int(3), Int(5)) == Int(8)
         for all operations (+*/...) and Values
         """
-        for op in value_ops:
-            assert op(i, j) == op(Int(i), Int(j)).n
+        for op, vop in value_ops:
+            assert op(i, j) == vop(Int(i), Int(j)).n  # type: ignore
 
     # @given(i=infer, j=infer)
     @given(st.builds(Int, ints_st),
@@ -43,8 +47,8 @@ class TestIntFloat(object):
         value, ie:
         Int(5) + Int() must be an Int
         """
-        for op in value_ops:
-            assert isinstance(op(i, j), Int)
+        for op, vop in value_ops:
+            assert isinstance(vop(i, j), Int)
 
     @given(st.floats(allow_nan=False, allow_infinity=False),  # type: ignore
            st.floats(allow_nan=False, allow_infinity=False))  # type: ignore
@@ -54,8 +58,8 @@ class TestIntFloat(object):
         Int(3) + Int(5) == Int(8)
         for all operations (+*/...) and Values
         """
-        for op in value_ops:
-            assert op(i, j) == op(Float(i), Float(j)).n
+        for op, vop in value_ops:
+            assert op(i, j) == vop(Float(i), Float(j)).n  # type: ignore
 
     @given(ints_st, ints_st)
     def test_float_adding(self, i: Optional[float], j: Optional[float]) -> None:
@@ -64,29 +68,29 @@ class TestIntFloat(object):
         value, ie:
         Int(5) + Int() must be an Int
         """
-        for op in value_ops:
-            assert isinstance(op(Float(i), Float(j)), Float)
+        for op, vop in value_ops:
+            assert isinstance(vop(Float(i), Float(j)), Float)
 
     # TODO(helq): in the future it shouldn't not handle nans and infs
     @given(st.integers(), st.floats(allow_nan=False, allow_infinity=False))  # type: ignore
     def test_float_and_ints_comform_to_baseline_python(
             self, i: int, j: float) -> None:
-        for op in value_ops:
-            assert op(i, j) == op(Int(i), Float(j)).n
-            assert op(j, i) == op(Float(j), Int(i)).n
+        for op, vop in value_ops:
+            assert op(i, j) == vop(Int(i), Float(j)).n  # type: ignore
+            assert op(j, i) == vop(Float(j), Int(i)).n  # type: ignore
 
     @given(ints_st, floats_st)
     def test_float_from_operating_int_with_float(
             self, i: Optional[int], j: Optional[float]) -> None:
-        for op in value_ops:
-            assert isinstance(op(Int(i), Float(j)), Float)
+        for op, vop in value_ops:
+            assert isinstance(vop(Int(i), Float(j)), Float)
 
     @given(ints_st, floats_st)
     def test_none_affects_everything(
             self, i: Optional[int], j: Optional[float]) -> None:
-        for op in value_ops:
-            res  = op(Int(i), Float(j)).n is None
-            res2 = op(Float(j), Int(i)).n is None
+        for op, vop in value_ops:
+            res  = vop(Int(i), Float(j)).n is None  # type: ignore
+            res2 = vop(Float(j), Int(i)).n is None  # type: ignore
             is_i_or_j_none = (i is None) or (j is None)
             assert (is_i_or_j_none == res == res2)
 
@@ -137,6 +141,6 @@ class TestAny(object):
         Any() + Int(5) == Any()
         Any() + Float(None) == Any()
         """
-        for op in value_ops:
-            assert isinstance(op(Any(), value), Any)
-            assert isinstance(op(value, Any()), Any)
+        for op, vop in value_ops:
+            assert isinstance(vop(Any(), value), Any)
+            assert isinstance(vop(value, Any()), Any)

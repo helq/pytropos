@@ -9,70 +9,22 @@ Pos = ty.Tuple[int, int]
 BINARY_OP_METHODS = ['add', 'radd', 'mul', 'rmul']
 SPECIAL_METHODS = BINARY_OP_METHODS
 
+OperationFun = ty.Callable[['Value', 'Value', ty.Optional[Pos]], 'Value']
+OperationTupleTypes = ty.Tuple[ty.Type, ty.Type, OperationFun]
+
+special_methods_implementations: ty.Dict[str, ty.List[OperationTupleTypes]] = \
+    {op: [] for op in BINARY_OP_METHODS if op[0] != 'r'}
+
 
 # TODO(helq): make Value an abstract class, no value should be constructible
 # from Value
 class Value(object):
-    __special_methods_implementations = \
-        {op: [] for op in BINARY_OP_METHODS if op[0] != 'r'}  # type: ty.Any
     """
     All variables in tensorlint must derivate from `Value`. `Value` is just like `object`
     for all objects in python.
 
     `Value` implements the general (gradual) type checking rules.
     """
-
-    def __binop(self,
-                op: str,
-                other: 'Value',
-                src_pos: ty.Optional[Pos] = None,
-                rev: bool = False) -> 'ty.Union[Value, NotImplemented]':
-        if isinstance(self, Any) or isinstance(other, Any):
-            return Any()
-        for type_l, type_r, fun in self.__special_methods_implementations[op]:
-            # print("vals: {}".format((type_l, type_r, fun)))
-            # print("current types: {}  {}".format(type(self), type(other)))
-            # print("evaluation: {}  {}".format(type(self), type(other)))
-            if isinstance(self, type_l) and isinstance(other, type_r):
-                res = fun(self, other, src_pos)
-                if res != NotImplemented:
-                    return res
-                else:
-                    # TODO(helq): show error of implementation. The function
-                    # `fun` should implement what it says it should implement,
-                    # ie, type_l and type_r
-                    print("Function operating between types `{}` and `{}`"
-                          " didn't compute. This shouldn't happen!".format(type_l, type_r))
-        # Try reverse operation if everything failed, this isn't necessary for
-        # usual bin operation notation `5 + 3`, but for when the function is
-        # directly called `(5).__add__(3)`
-        if rev:
-            return other.__binop(op, self, src_pos, False)
-        # TODO(helq): add typechecking error
-        # print("The values couldn't be added")
-        return NotImplemented
-        # TODO(helq): allow continuation of computation, ie, do something to
-        # not return NotImplemented (probably, return Any() but add error to
-        # list of errors)
-
-    def __add__(self,
-                other: 'Value',
-                src_pos: ty.Optional[Pos] = None,
-                rev: bool = False) -> 'Value':
-        return self.__binop('add', other, src_pos, rev)
-
-    # mypy fails with this method, it doesn't comform to what it used to see
-    def __radd__(self, other, src_pos=None, rev: bool = False):  # type: ignore
-        return self.__add__(other, src_pos)
-
-    def __mul__(self,
-                other: 'Value',
-                src_pos: ty.Optional[Pos] = None,
-                rev: bool = False) -> 'Value':
-        return self.__binop('mul', other, src_pos)
-
-    def __rmul__(self, other, src_pos=None, rev: bool = False):  # type: ignore
-        return self.__mul__(other, src_pos)
 
 
 # TODO(helq): improve documentation
@@ -91,7 +43,7 @@ def addRules(debug: bool = False) -> ty.Callable[[ty.Type], ty.Type]:
             method = '__{}__'.format(method_name)
             if method in cls.__dict__:
                 fun = getattr(cls, method)
-                getattr(Value, '_Value__special_methods_implementations')[method_name].extend(
+                special_methods_implementations[method_name].extend(
                     [(cls, none2cls(tR), fun) for tR in cls.add_impls]
                 )
                 delattr(cls, method)
@@ -104,8 +56,6 @@ def addRules(debug: bool = False) -> ty.Callable[[ty.Type], ty.Type]:
         # in any way
         numeric_methods_ = set(["__{}__".format(v) for v in SPECIAL_METHODS])
         notimplemented = numeric_methods_.difference(modified_methods)
-        if hasattr(cls, 'impls_inherit'):
-            notimplemented = notimplemented.difference(cls.impls_inherit)
         for method in notimplemented:
             def failure_method(*args, **kargs):  # type: ignore
                 """I'm here to prevent you to perform the operation"""
@@ -170,7 +120,6 @@ class Str(Value):
 class Int(Value):
     n = None  # type: ty.Optional[int]
     add_impls = [None]  # type: ty.List[ty.Optional[ty.Type]]
-    impls_inherit = ['__radd__', '__rmul__']
 
     def __init__(self, n: ty.Optional[int] = None) -> None:
         self.n = n
@@ -182,10 +131,10 @@ class Int(Value):
             return Int(op(self.n, other.n))
         return NotImplemented
 
-    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:
         return self.__binop(operator.add, other, src_pos)  # type: ignore
 
-    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:
         return self.__binop(operator.mul, other, src_pos)  # type: ignore
 
     def __repr__(self) -> str:
@@ -200,7 +149,6 @@ class Int(Value):
 class Float(Value):
     n = None  # type: ty.Optional[float]
     add_impls = [None, Int]  # type: ty.List[ty.Optional[ty.Type]]
-    impls_inherit = ['__radd__', '__rmul__']
 
     def __init__(self, n: ty.Optional[float] = None) -> None:
         self.n = n
@@ -213,10 +161,10 @@ class Float(Value):
                 return Float(op(self.n, other.n))
         return NotImplemented
 
-    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:
         return self.__binop(operator.add, other, src_pos)  # type: ignore
 
-    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:
         return self.__binop(operator.mul, other, src_pos)  # type: ignore
 
     def __repr__(self) -> str:
