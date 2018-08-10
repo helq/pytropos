@@ -16,8 +16,8 @@ ints_st = st.one_of(st.integers(), st.none())
 floats_st = st.one_of(st.floats(), st.none())  # type: ignore
 
 value_ops = [
-    (ops.add, tlo.add),
-    (ops.mul, tlo.mul)
+    (ops.add, tlo.add),  # type: ignore
+    (ops.mul, tlo.mul)   # type: ignore
 ]
 
 
@@ -36,7 +36,7 @@ class TestIntFloat(object):
         for all operations (+*/...) and Values
         """
         for op, vop in value_ops:
-            assert op(i, j) == vop(Int(i), Int(j)).n  # type: ignore
+            assert op(i, j) == vop(Int(i), Int(j)).n
 
     # @given(i=infer, j=infer)
     @given(st.builds(Int, ints_st),
@@ -59,7 +59,7 @@ class TestIntFloat(object):
         for all operations (+*/...) and Values
         """
         for op, vop in value_ops:
-            assert op(i, j) == vop(Float(i), Float(j)).n  # type: ignore
+            assert op(i, j) == vop(Float(i), Float(j)).n
 
     @given(ints_st, ints_st)
     def test_float_adding(self, i: Optional[float], j: Optional[float]) -> None:
@@ -76,8 +76,8 @@ class TestIntFloat(object):
     def test_float_and_ints_comform_to_baseline_python(
             self, i: int, j: float) -> None:
         for op, vop in value_ops:
-            assert op(i, j) == vop(Int(i), Float(j)).n  # type: ignore
-            assert op(j, i) == vop(Float(j), Int(i)).n  # type: ignore
+            assert op(i, j) == vop(Int(i), Float(j)).n
+            assert op(j, i) == vop(Float(j), Int(i)).n
 
     @given(ints_st, floats_st)
     def test_float_from_operating_int_with_float(
@@ -89,8 +89,8 @@ class TestIntFloat(object):
     def test_none_affects_everything(
             self, i: Optional[int], j: Optional[float]) -> None:
         for op, vop in value_ops:
-            res  = vop(Int(i), Float(j)).n is None  # type: ignore
-            res2 = vop(Float(j), Int(i)).n is None  # type: ignore
+            res  = vop(Int(i), Float(j)).n is None
+            res2 = vop(Float(j), Int(i)).n is None
             is_i_or_j_none = (i is None) or (j is None)
             assert (is_i_or_j_none == res == res2)
 

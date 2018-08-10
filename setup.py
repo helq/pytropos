@@ -195,7 +195,7 @@ def _test(pytest_args: List[str] = []) -> int:
 
     :return: exit code
     """
-    ignore_dirs = ['tests/example_code']
+    # ignore_dirs = ['tests/example_code']
     # Make sure to import pytest in this function. For the reason, see here:
     # <http://pytest.org/latest/goodpractises.html#integration-with-setuptools-test-commands>  # noqa
     import pytest
@@ -204,7 +204,7 @@ def _test(pytest_args: List[str] = []) -> int:
     return pytest.main(  # type: ignore
         PYTEST_FLAGS +
         [TESTS_DIRECTORY,
-         '--ignore='+','.join(ignore_dirs),
+         # '--ignore='+','.join(ignore_dirs),
          '--mypy'
          ] +
         pytest_args)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from pytest import raises
 import pytest
 from tensorlint import metadata
