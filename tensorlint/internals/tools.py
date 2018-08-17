@@ -1,4 +1,8 @@
-__all__ = ['NonImplementedTL', 'Singleton']
+import typing as ty
+
+__all__ = ['NonImplementedTL', 'Singleton', 'Pos']
+
+Pos = ty.Tuple[int, int]
 
 
 class NonImplementedTL(Exception):

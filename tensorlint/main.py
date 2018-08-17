@@ -61,7 +61,8 @@ def main(argv: List[str]) -> int:
     from typed_astunparse import unparse
     from tensorlint.translate import to_tensorlint, to_python_ast
     file = args_parsed.file
-    ast_ = ast3.parse(file.read(), filename=file.name)
+    ast_: ast3.Module
+    ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
     newast = to_tensorlint(ast_)
 
     print("Original file:")

@@ -18,7 +18,7 @@ from .transformations import (
 __all__ = ["to_tensorlint"]
 
 
-def to_tensorlint(tree: ast3.AST) -> ast3.AST:
+def to_tensorlint(tree: ast3.Module) -> ast3.Module:
     list_ast = walk_ast(
         tree,
         f_before=combine_transformations([[

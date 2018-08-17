@@ -1,18 +1,18 @@
 import typing as ty
 from tensorlint.internals import (
-    Any, Value, Int, errors, TL_TypeError, addRules
+    Any, Value, Int, errors, TL_TypeError, binop_rules
 )
-from tensorlint.internals.tools import NonImplementedTL
+from tensorlint.internals.tools import NonImplementedTL, Pos
 
 __all__ = ['zeros', 'ones', 'dot', 'float32', 'float64']
 
 T = ty.TypeVar('T')
-Pos = ty.Tuple[int, int]
+
 
 # TODO(helq): copy notation (names used) from the library
 
 
-@addRules()
+@binop_rules.extractRulesFromClass
 class array(Value):
     type_ = None  # type: ty.Any
     shape = None  # type: ty.Tuple[Int, ...]

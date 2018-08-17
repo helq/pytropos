@@ -1,5 +1,5 @@
 """
-Generating random ASTs based on hypothesis.
+Generating random ASTs based on hypothesis. This module is only called when testing.
 
 Python 3.6 (type commented) Grammar, taken from:
 https://github.com/python/typed_ast/blob/89242344f18f94dc109823c0732325033264e22b/ast3/Parser/Python.asdl
@@ -180,7 +180,7 @@ cmpop = __many_options_from_list([
     ast3.In, ast3.NotIn])
 
 Num: st.SearchStrategy[ast3.Num]
-Num = st.builds(ast3.Num, st.one_of(st.floats(), st.integers()))  # type: ignore
+Num = st.builds(ast3.Num, st.one_of(st.floats(), st.integers()))
 
 Str: st.SearchStrategy[ast3.Str]
 Str = st.builds(ast3.Str, st.text())

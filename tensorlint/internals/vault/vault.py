@@ -3,7 +3,7 @@ from typing import Union  # noqa: F401
 import typing as ty
 from types import ModuleType
 
-from tensorlint.internals.values import Value, Any
+from ..value import Value, Any
 
 from .branch_node import BranchNode
 from .scope import FrozenScope, Scope
