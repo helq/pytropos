@@ -2,7 +2,6 @@
 
 from tensorlint.internals.builtin_values import Int, Float, Str
 from tensorlint.internals.value import Any, Value
-from tensorlint.internals.rules import binary_operator_operations
 
 from pytest import raises
 from hypothesis import given
@@ -19,18 +18,18 @@ import typing as ty
 
 ints_st = st.one_of(st.integers(), st.none())
 floats_st = st.one_of(st.floats(), st.none())
+ints_floats_st = st.one_of(st.integers(min_value=-100, max_value=100),
+                           st.floats(min_value=-100, max_value=100), st.none())
 
 
-commutative_ops = [
-    (getattr(ops, op), getattr(tlo, op))
-    for op in ['add', 'mul']
-]
+def get_ops(ls: ty.List[str]) -> ty.List[ty.Tuple[ty.Any, ty.Any]]:
+    return [
+        (getattr(ops, op), getattr(tlo, op))
+        for op in ls
+    ]
 
-value_ops = [
-    (getattr(ops, op), getattr(tlo, op))
-    for op, _ in binary_operator_operations
-    if op not in ['pow', 'lshift', 'rshift']
-]
+
+value_ops = get_ops(['add', 'sub', 'mul', 'truediv', 'floordiv', 'mod'])
 
 
 def check_float_equality(f1: float, f2: float) -> bool:
@@ -42,42 +41,50 @@ def check_float_equality(f1: float, f2: float) -> bool:
         return f1 == f2
 
 
-def can_op_zerodivide(op: ty.Callable) -> bool:
-    return (
-        op is ops.truediv
-        or op is ops.floordiv
-        or op is ops.mod
-    )
-
-
 # General test for Int and Float
 class TestIntFloat(object):
     @given(st.integers())
-    def test_val_preserved(self, i: int) -> None:
-        for klass in [Int, Float]:
-            assert i == klass(i).n  # type: ignore # this is actually true for Int and Floats
+    def test_int_preserved(self, i: int) -> None:
+        assert i == Int(i).n
+
+    @given(st.floats())
+    def test_float_preserved(self, i: float) -> None:
+        new_val = Float(i)
+        assert new_val.n is not None
+        assert check_float_equality(i, new_val.n)
 
     @given(st.integers(), st.integers())
     def test_op_int(self, i: int, j: int) -> None:
         """
         This test basically checks that doing something like this:
         add(Int(3), Int(5)) == Int(8)
-        for all operations (+*/...) and Values
+        for operations which image is on the same initial value
         """
-        for op, vop in value_ops:
+        for op, vop in get_ops(['add', 'sub', 'mul']):
             val = vop(Int(i), Int(j))
-            if isinstance(val, Any):
-                with raises(Exception):
+            if isinstance(val, Int):
+                py_val = op(i, j)
+                assert py_val == val.n
+                assert type(py_val) is type(val.n)  # noqa: E721
+
+    @given(st.integers(), st.integers())
+    def test_div_int(self, i: int, j: int) -> None:
+        """
+        Checks correctness of division between integers.
+        truediv(Int(3), Int(5)) == Int(8)
+        for division operations
+        """
+        for op, vop in get_ops(['truediv', 'floordiv', 'mod']):
+            val = vop(Int(i), Int(j))
+            if val.n is None:
+                with raises(ZeroDivisionError):
                     op(i, j)
+                # TODO(helq): add checking of added warning
             else:
-                if isinstance(val, (Int, Float)):
-                    if val.n is None:
-                        with raises(Exception):
-                            op(i, j)
-                    else:
-                        py_val = op(i, j)
-                        assert py_val == val.n
-                        assert type(py_val) is type(val.n)  # noqa: E721
+                assert isinstance(val, (Float, Int))
+                py_val = op(i, j)
+                assert py_val == val.n
+                assert type(py_val) is type(val.n)  # noqa: E721
 
     # @given(i=infer, j=infer)
     @given(st.builds(Int, ints_st),
@@ -88,26 +95,23 @@ class TestIntFloat(object):
         value, ie:
         Int(5) + Int() must be an Int
         """
-        for op, vop in value_ops:
-            if op in {ops.truediv}:
-                assert isinstance(vop(i, j), (Int, Float, Any))
-            else:
-                assert isinstance(vop(i, j), Int)
+        for op, vop in get_ops(['add', 'sub', 'mul']):
+            assert isinstance(vop(i, j), Int)
 
     @given(st.floats(), st.floats())
     def test_op_float(self, i: float, j: float) -> None:
         """
         This test basically checks that doing something like this:
-        Int(3) + Int(5) == Int(8)
+        Float(3) + Float(5) == Float(8)
         for all operations (+*/...) and Values
         """
         for op, vop in value_ops:
-            if j == 0 and can_op_zerodivide(op):
+            new_val = vop(Float(i), Float(j))
+            if new_val.n is None:
                 with raises(ZeroDivisionError):
                     op(i, j)
-                assert vop(Float(i), Float(j)).n is None
             else:
-                assert check_float_equality(op(i, j), vop(Float(i), Float(j)).n)
+                assert check_float_equality(op(i, j), new_val.n)
 
     @given(floats_st, floats_st)
     def test_float_adding(self, i: Optional[float], j: Optional[float]) -> None:
@@ -122,15 +126,22 @@ class TestIntFloat(object):
     @given(st.integers(), st.floats())
     def test_float_and_ints_comform_to_baseline_python(
             self, i: int, j: float) -> None:
-        for op, vop in value_ops:
-            if j == 0 and can_op_zerodivide(op):
+        for op, vop in get_ops(['add', 'sub', 'mul']):
+            assert check_float_equality( op(i, j), vop(Int(i), Float(j)).n )  # noqa: E201,E202
+            assert check_float_equality( op(j, i), vop(Float(j), Int(i)).n )  # noqa: E201,E202
+
+    @given(st.integers(), st.floats())
+    def test_float_and_ints_comform_to_baseline_python_divs(
+            self, i: int, j: float) -> None:
+        for op, vop in get_ops(['truediv', 'floordiv', 'mod']):
+            if j == 0:
                 with raises(ZeroDivisionError):
                     op(i, j)
                 assert vop(Int(i), Float(j)).n is None
             else:
                 assert check_float_equality( op(i, j), vop(Int(i), Float(j)).n )  # noqa: E201,E202
 
-            if i == 0 and can_op_zerodivide(op):
+            if i == 0:
                 with raises(ZeroDivisionError):
                     op(j, i)
                 assert vop(Float(j), Int(i)).n is None
@@ -147,33 +158,45 @@ class TestIntFloat(object):
     @given(ints_st, floats_st)
     def test_none_affects_everything(
             self, i: Optional[int], j: Optional[float]) -> None:
-        for op, vop in commutative_ops:
+        for op, vop in get_ops(['add', 'mul']):
             res  = vop(Int(i), Float(j)).n is None
             res2 = vop(Float(j), Int(i)).n is None
             is_i_or_j_none = (i is None) or (j is None)
             assert (is_i_or_j_none == res == res2)
 
-    @given(st.one_of(st.integers(min_value=-100, max_value=100), st.none()),
-           st.one_of(st.floats(min_value=-100, max_value=100), st.none()))
+    @given(ints_floats_st, ints_floats_st)
     def test_pow_with_some_values(
-            self, i: Optional[int], j: Optional[float]) -> None:
+            self, i: ty.Union[int, float, None], j: ty.Union[int, float, None]
+    ) -> None:
+        # event('i has type {}'.format(type(i).__name__))
+        # event('j has type {}'.format(type(j).__name__))
+
+        val1 = Float(i) if isinstance(i, float) else Int(i)
+        val2 = Int(j) if isinstance(j, int) else Float(j)
+
         if i is not None and j is not None:
-            new_val1 = tlo.pow(Int(i), Float(j))  # type: ignore
-            new_val2 = tlo.pow(Float(j), Int(i))  # type: ignore
+            new_val1 = tlo.pow(val1, val2)  # type: ignore
+            new_val2 = tlo.pow(val2, val1)  # type: ignore
             if new_val1.n is None:
                 with raises(Exception):
                     ops.pow(i, j)
-            elif not isinstance(new_val1, Any):
+            elif isinstance(new_val1, Any):
+                # TODO(helq): check for a warning added to the list of warnings
+                ...
+            else:
                 assert ops.pow(i, j) == new_val1.n
 
             if new_val2.n is None:
                 with raises(Exception):
                     ops.pow(j, i)
-            elif not isinstance(new_val2, Any):
+            elif isinstance(new_val2, Any):
+                # TODO(helq): check for a warning added to the list of warnings
+                ...
+            else:
                 assert ops.pow(j, i) == new_val2.n
         else:
-            assert tlo.pow(Int(i), Float(j)).n is None  # type: ignore
-            assert tlo.pow(Float(j), Int(i)).n is None  # type: ignore
+            assert isinstance(tlo.pow(val1, val2).n, Any)  # type: ignore
+            assert isinstance(tlo.pow(val2, val1).n, Any)  # type: ignore
 
     @given(st.one_of(st.integers(), st.none()),
            st.one_of(st.integers(min_value=-2000, max_value=2000), st.none()))

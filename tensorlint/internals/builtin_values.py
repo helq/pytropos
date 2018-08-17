@@ -1,7 +1,7 @@
 import typing as ty
 
 from .value import Value, Any
-from .rules import binop_rules, BINARY_OP_METHODS
+from .rules import binop_rules
 
 __all__ = ['Int', 'Iterable', 'Float', 'ValueAsWithStmt', 'for_loop']
 
@@ -22,116 +22,190 @@ class Str(Value):
         self.s = s
 
 
-# TODO(helq): make `n` and all other variables private
+def _Int_op_output_is_int(
+        op: ty.Callable[[int, int], int]
+) -> ty.Callable[['Int', Value, ty.Optional[Pos]], ty.Union['Int', 'NotImplemented']]:
+
+    def binop(
+            me: 'Int',
+            other: Value,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Int', 'NotImplemented']:
+        if isinstance(other, Int):
+            if me.n is None or other.n is None:
+                return Int()
+            try:
+                new_n = op(me.n, other.n)  # type: ty.Optional[int]
+            except ZeroDivisionError:
+                # TODO(helq): add warning to list of warnings
+                new_n = None
+            except ValueError:  # This only happens with rshift and lshift
+                new_n = None
+            return Int(new_n)
+        return NotImplemented
+
+    return binop
+
+
+def _Int_op_output_is_float(
+        op: ty.Callable[[int, int], float]
+) -> ty.Callable[['Int', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
+
+    def binop(
+            me: 'Int',
+            other: Value,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Float', 'NotImplemented']:
+        if isinstance(other, Int):
+            if me.n is None or other.n is None:
+                return Float()
+            try:
+                new_n = op(me.n, other.n)  # type: ty.Optional[float]
+            except ZeroDivisionError:
+                new_n = None
+            return Float(new_n)
+        return NotImplemented
+
+    return binop
+
+
+def _Int_op_output_is_any(
+        op: ty.Callable[[int, int], ty.Union[float, int]]
+) -> ty.Callable[['Int', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
+
+    def binop(
+            me: 'Int',
+            other: Value,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Float', 'NotImplemented']:
+        if isinstance(other, Int):
+            if me.n is None or other.n is None:
+                return Any()
+            try:
+                new_n = op(me.n, other.n)  # type: ty.Union[int, float, None]
+            except ZeroDivisionError:
+                new_n = None
+
+            if isinstance(new_n, int):
+                return Int(new_n)
+            elif isinstance(new_n, float):
+                return Float(new_n)
+            return Any()
+        return NotImplemented
+
+    return binop
+
+
 # TODO(helq): trying to set an attribute should throw an error (ie, the
 # simulation of the basic building blocks (int, float, ...) should be as close
 # as possible to the official libraries)
+@binop_rules.extractRulesFromClass
 class Int(Value):
     def __init__(self, n: ty.Optional[int] = None) -> None:
+        assert n is None or isinstance(n, int), \
+            "Int can only carry int numbers (or None). It was given `{}`".format(type(n))
         self.n = n
 
     def __repr__(self) -> str:
         return "Int("+repr(self.n)+")"
 
+    add_op       = _Int_op_output_is_int(int.__add__)
+    radd_op      = _Int_op_output_is_int(int.__radd__)
+    sub_op       = _Int_op_output_is_int(int.__sub__)
+    rsub_op      = _Int_op_output_is_int(int.__rsub__)
+    mul_op       = _Int_op_output_is_int(int.__mul__)
+    rmul_op      = _Int_op_output_is_int(int.__rmul__)
+    truediv_op   = _Int_op_output_is_float(int.__truediv__)
+    rtruediv_op  = _Int_op_output_is_float(int.__rtruediv__)
+    floordiv_op  = _Int_op_output_is_int(int.__floordiv__)
+    rfloordiv_op = _Int_op_output_is_int(int.__rfloordiv__)
+    mod_op       = _Int_op_output_is_int(int.__mod__)
+    rmod_op      = _Int_op_output_is_int(int.__rmod__)
+    pow_op       = _Int_op_output_is_any(int.__pow__)
+    rpow_op      = _Int_op_output_is_any(int.__rpow__)
+    lshift_op    = _Int_op_output_is_int(int.__lshift__)
+    rlshift_op   = _Int_op_output_is_int(int.__rlshift__)
+    rshift_op    = _Int_op_output_is_int(int.__rshift__)
+    rrshift_op   = _Int_op_output_is_int(int.__rrshift__)
 
-def __create_binop_int(  # noqa: C901
-        op: ty.Callable[[int, ty.Any], ty.Any],
-        output_is_only_int: bool = True
-) -> ty.Callable:
-    def binop(self: Int,
-              other: Value,
-              src_pos: ty.Optional[Pos] = None
-              ) -> ty.Union[Int, Value, 'NotImplemented']:
-        if isinstance(other, Int):
-            if self.n is None or other.n is None:
-                return Int()
 
+def _Float_op_output_is_float(
+        op: ty.Callable[[float, ty.Union[float, int]], float]
+) -> ty.Callable[['Float', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
+
+    def binop(
+            me: 'Float',
+            other: Value,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Float', 'NotImplemented']:
+        if isinstance(other, (Float, Int)):
+            if me.n is None or other.n is None:
+                return Float()
             try:
-                # TODO(helq): make sure the operation doesn't take too long or takes too
-                # much space. For example, `pow`, `rshift` and `lshift` can take easily
-                # many resources with only a simple operation
-                new_n = op(self.n, other.n)  # type: ty.Optional[int]
+                new_n = op(me.n, other.n)  # type: ty.Optional[float]
             except ZeroDivisionError:
-                # TODO(helq): add warning to list of warnings!
-                new_n = None
-            except ValueError:
-                new_n = None
-            except OverflowError:
+                # TODO(helq): add warning
                 new_n = None
 
-            if output_is_only_int:
-                if isinstance(new_n, int) or new_n is None:
-                    return Int(new_n)
-
-                # TODO(helq): add possible warning, this is a warning not an error, perse
-                return Any()  # This will, probably, never happen
-            else:
-                if isinstance(new_n, float):
-                    return Float(new_n)
-                elif isinstance(new_n, int):
-                    return Int(new_n)
-                # This happens if the result is not an int or a float, for example a complex
-                return Any()
-
+            return Float(new_n)
         return NotImplemented
+
     return binop
 
 
-# functions that not always return int as a result
-not_always_int = set({
-    '__pow__', '__rpow__',
-    '__truediv__', '__rtruediv__',
-})
-for op in BINARY_OP_METHODS:
-    alwaysint = op not in not_always_int
-    if hasattr(int, op):
-        setattr(Int, op, __create_binop_int(getattr(int, op), alwaysint))
+def _Float_op_output_is_any(
+        op: ty.Callable[[float, ty.Union[float, int]], ty.Union[float, complex]]
+) -> ty.Callable[['Float', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
 
-binop_rules.extractRulesFromClass(Int)
+    def binop(
+            me: 'Float',
+            other: Value,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Float', 'NotImplemented']:
+        if isinstance(other, (Float, Int)):
+            if me.n is None or other.n is None:
+                return Any()
+            try:
+                new_n = op(me.n, other.n)  # type: ty.Union[float, int, complex, None]
+            except ZeroDivisionError:
+                # TODO(helq): add warning
+                new_n = None
+
+            if isinstance(new_n, int):
+                return Int(new_n)
+            if isinstance(new_n, float):
+                return Float(new_n)
+            return Any()
+        return NotImplemented
+
+    return binop
 
 
 # TODO(helq): add warning when operating with nan values
+@binop_rules.extractRulesFromClass
 class Float(Value):
     def __init__(self, n: ty.Optional[float] = None) -> None:
+        assert n is None or isinstance(n, float), \
+            "Float can only carry float numbers (or None). It was given `{}`".format(type(n))
         self.n = n
 
     def __repr__(self) -> str:
         return "Float("+repr(self.n)+")"
 
-
-def __create_binop_float(
-        op: ty.Callable[[float, ty.Any], ty.Any],
-) -> ty.Callable:
-    def binop(self: Float,
-              other: Value,
-              src_pos: ty.Optional[Pos] = None
-              ) -> ty.Union[Float, 'NotImplemented']:
-        if isinstance(other, (Int, Float)):
-            if self.n is None or other.n is None:
-                return Float()
-
-            try:
-                new_n = op(self.n, other.n)  # type: ty.Optional[int]
-            except ZeroDivisionError:
-                new_n = None
-            except ValueError:
-                new_n = None
-            except OverflowError:
-                new_n = None
-
-            if isinstance(new_n, float) or new_n is None:
-                return Float(new_n)
-            else:
-                return Any()
-        return NotImplemented
-    return binop
-
-
-for op in BINARY_OP_METHODS:
-    if hasattr(float, op):
-        setattr(Float, op, __create_binop_float(getattr(float, op)))
-
-binop_rules.extractRulesFromClass(Float)
+    add_op = _Float_op_output_is_float(float.__add__)
+    radd_op = _Float_op_output_is_float(float.__radd__)
+    sub_op = _Float_op_output_is_float(float.__sub__)
+    rsub_op = _Float_op_output_is_float(float.__rsub__)
+    mul_op = _Float_op_output_is_float(float.__mul__)
+    rmul_op = _Float_op_output_is_float(float.__rmul__)
+    truediv_op = _Float_op_output_is_float(float.__truediv__)
+    rtruediv_op = _Float_op_output_is_float(float.__rtruediv__)
+    floordiv_op = _Float_op_output_is_float(float.__floordiv__)
+    rfloordiv_op = _Float_op_output_is_float(float.__rfloordiv__)
+    mod_op = _Float_op_output_is_float(float.__mod__)
+    rmod_op = _Float_op_output_is_float(float.__rmod__)
+    pow_op = _Float_op_output_is_any(float.__pow__)
+    rpow_op = _Float_op_output_is_any(float.__rpow__)
 
 
 class ValueAsWithStmt(object):
