@@ -1,6 +1,8 @@
 # This file is run by pytest
 
-from tensorlint.internals.builtin_values import Int, Float, Str
+from tools import almost_any_value
+
+from tensorlint.internals.builtin_values import Int, Float
 from tensorlint.internals.value import Any, Value
 
 from pytest import raises
@@ -232,14 +234,6 @@ almost_anything = \
         st.none(),
         st.characters(),
         st.binary()
-    )
-
-almost_any_value = \
-    st.one_of(
-        st.builds(Int, st.integers()),
-        st.builds(Float, st.floats()),
-        st.builds(Any),
-        st.builds(Str, st.characters()),
     )
 
 

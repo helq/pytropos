@@ -16,10 +16,13 @@ class Iterable(Value):
 
 
 class Str(Value):
-    s = None  # type: str
-
-    def __init__(self, s: str) -> None:
+    def __init__(self, s: ty.Optional[str] = None) -> None:
         self.s = s
+
+    def unite_inside(self, other: Value) -> Value:
+        assert type(other) is Str, \
+            "Sorry, but I only unite with other Strs"
+        return Str()
 
 
 def _Int_op_output_is_int(
@@ -106,9 +109,17 @@ class Int(Value):
             "Int can only carry int numbers (or None). It was given `{}`".format(type(n))
         self.n = n
 
+    def unite_inside(self, other: Value) -> Value:
+        assert type(other) is Int, \
+            "Sorry, but I only unite with other Ints"
+        if self.n == other.n:  # type: ignore
+            return Int(self.n)
+        return Int()
+
     def __repr__(self) -> str:
         return "Int("+repr(self.n)+")"
 
+    # TODO(helq): add test to make sure all dunder methods from int are implemented
     add_op       = _Int_op_output_is_int(int.__add__)
     radd_op      = _Int_op_output_is_int(int.__radd__)
     sub_op       = _Int_op_output_is_int(int.__sub__)
@@ -189,23 +200,30 @@ class Float(Value):
             "Float can only carry float numbers (or None). It was given `{}`".format(type(n))
         self.n = n
 
+    def unite_inside(self, other: Value) -> Value:
+        assert type(other) is Float, \
+            "Sorry, but I only unite with other Floats"
+        if self.n == other.n:  # type: ignore
+            return Float(self.n)
+        return Float()
+
     def __repr__(self) -> str:
         return "Float("+repr(self.n)+")"
 
-    add_op = _Float_op_output_is_float(float.__add__)
-    radd_op = _Float_op_output_is_float(float.__radd__)
-    sub_op = _Float_op_output_is_float(float.__sub__)
-    rsub_op = _Float_op_output_is_float(float.__rsub__)
-    mul_op = _Float_op_output_is_float(float.__mul__)
-    rmul_op = _Float_op_output_is_float(float.__rmul__)
-    truediv_op = _Float_op_output_is_float(float.__truediv__)
-    rtruediv_op = _Float_op_output_is_float(float.__rtruediv__)
-    floordiv_op = _Float_op_output_is_float(float.__floordiv__)
+    add_op       = _Float_op_output_is_float(float.__add__)
+    radd_op      = _Float_op_output_is_float(float.__radd__)
+    sub_op       = _Float_op_output_is_float(float.__sub__)
+    rsub_op      = _Float_op_output_is_float(float.__rsub__)
+    mul_op       = _Float_op_output_is_float(float.__mul__)
+    rmul_op      = _Float_op_output_is_float(float.__rmul__)
+    truediv_op   = _Float_op_output_is_float(float.__truediv__)
+    rtruediv_op  = _Float_op_output_is_float(float.__rtruediv__)
+    floordiv_op  = _Float_op_output_is_float(float.__floordiv__)
     rfloordiv_op = _Float_op_output_is_float(float.__rfloordiv__)
-    mod_op = _Float_op_output_is_float(float.__mod__)
-    rmod_op = _Float_op_output_is_float(float.__rmod__)
-    pow_op = _Float_op_output_is_any(float.__pow__)
-    rpow_op = _Float_op_output_is_any(float.__rpow__)
+    mod_op       = _Float_op_output_is_float(float.__mod__)
+    rmod_op      = _Float_op_output_is_float(float.__rmod__)
+    pow_op       = _Float_op_output_is_any(float.__pow__)
+    rpow_op      = _Float_op_output_is_any(float.__rpow__)
 
 
 class ValueAsWithStmt(object):

@@ -9,6 +9,9 @@ class Value(object):
     for all objects in python.
     """
 
+    def unite_inside(self, other: 'Value') -> 'Value':
+        raise NotImplementedError
+
 
 # TODO(helq): Implement all methods special method names
 # https://docs.python.org/3/reference/datamodel.html#special-method-names

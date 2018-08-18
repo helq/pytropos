@@ -3,7 +3,10 @@ import typing as ty
 from .value import Value, Any
 from .tools import Pos
 
-__all__ = ['RuleError', 'Rules', 'binop_rules', 'BINARY_OP_METHODS', 'binary_operator_operations']
+__all__ = [
+    'RuleError', 'Rules', 'binop_rules', 'BINARY_OP_METHODS',
+    'binary_operator_operations', 'congruent', 'unite'
+]
 
 BinOp = ty.Callable[[Value, Value], Value]
 
@@ -117,13 +120,48 @@ class Rules(object):
 binop_rules = Rules()
 
 
+# I don't consider subtying in this work, for simplicity purposes, no tensor derives from
+# other classes (only from `object`)
+def congruent(x: Value, y: Value) -> bool:
+    """
+    Implements rules:
+    x ~ ?
+    ? ~ x
+    x ~ x
+    x ≁ y
+    """
+    if isinstance(x, Any) or isinstance(y, Any):
+        return True
+
+    return type(x) is type(y)
+
+
+def unite(x: Value, y: Value) -> Value:
+    """
+    Implements unite basic rule of the type system:
+    unite(?, x) = ?
+    unite(x, ?) = ?
+    unite(x, x) = x
+    unite(x, y) = ?
+    unite(W(a), W(b)) = W(unite(a,b))
+
+    NOTE: This function doesn't assume subtyping!!!
+    """
+    if isinstance(x, Any) or isinstance(y, Any):
+        return Any()
+    if type(x) is not type(y):  # inhibiting subtyping!!
+        return Any()
+
+    return x.unite_inside(y)
+
+
 if __name__ == '__main__':  # noqa: C901
     class A(Value):
         def __init__(self, n: int) -> None:
             self.n = str(n)
             self.m = 1
 
-        def __sub__(self, other: Value) -> Value:
+        def sub_op(self, other: Value) -> ty.Union[Value, 'NotImplemented']:
             if isinstance(other, A):
                 ret = A(int(self.n) - int(other.n))
                 ret.m += self.m + other.m + 1
@@ -138,7 +176,7 @@ if __name__ == '__main__':  # noqa: C901
         def __init__(self, n: int) -> None:
             self.ll = n
 
-        def __sub__(self, other: Value) -> Value:
+        def sub_op(self, other: Value) -> ty.Union[Value, 'NotImplemented']:
             if isinstance(other, B):
                 return B(self.ll - other.ll)
             if isinstance(other, A):
@@ -146,7 +184,7 @@ if __name__ == '__main__':  # noqa: C901
                 return ret
             return NotImplemented
 
-        def __rsub__(self, other: Value) -> Value:
+        def rsub_op(self, other: Value) -> ty.Union[Value, 'NotImplemented']:
             if isinstance(other, B):
                 return B(other.ll - self.ll)
             if isinstance(other, A):
@@ -163,7 +201,7 @@ if __name__ == '__main__':  # noqa: C901
     # rules.addRule('__sub__', A, A.__sub__)  # type: ignore
     binop_rules.extractRulesFromClass(A)
     print(binop_rules.run('__sub__', A(4), A(3)))
-    print(A(4) - A(3))
+    # print(A(4) - A(3))
     print(sub(A(4), A(3)))  # type: ignore  # noqa: F821
 
     print(sub(B(4), A(3)))  # type: ignore  # noqa: F821
