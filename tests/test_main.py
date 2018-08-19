@@ -2,6 +2,7 @@ from pytest import raises
 import pytest
 from tensorlint import metadata
 from tensorlint.main import main
+from tensorlint import TypeCheckLogger
 
 from typing import Any, Tuple
 
@@ -54,6 +55,4 @@ class TestMain(object):
 
         # there shouldn't be any trash after the generated code is executed,
         # everything should be encapsuled
-        import tensorlint as tl
-        assert len(tl.errors) == 0
-        assert len(tl.warnings) == 0
+        assert len(TypeCheckLogger().warnings) == 0

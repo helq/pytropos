@@ -3,29 +3,30 @@ This module defines what a typing error contains. Any error (or warning) found a
 typechecking should be added either to `errors` or `warnings`.
 """
 
-import typing as ty
+from .tools import Pos, Singleton
 
-__all__ = ['TL_TypeError', 'errors', 'warnings']
+from typing import Optional
+from typing import List, Tuple  # noqa: F401
+import typing as ty  # noqa: F401
 
-
-class TL_TypeError(object):
-    msg        = None  # type: str
-    lineno     = None  # type: int
-    col_offset = None  # type: int
-
-    def __init__(self, msg: str, lineno: int, col_offset: int) -> None:
-        self.msg        = msg
-        self.lineno     = lineno
-        self.col_offset = col_offset
-
-    def __repr__(self) -> str:
-        return (
-            "tl.TL_TypeError(" +
-            repr(self.msg) + ', ' +
-            repr(self.lineno) + ', ' +
-            repr(self.col_offset) +
-            ')')
+__all__ = ['TypeCheckLogger']
 
 
-errors: ty.List[TL_TypeError] = []
-warnings: ty.List[TL_TypeError] = []
+WarningType = str
+
+# Warning scheme:
+# W0__ : Builtin warning, something may fail
+# E0__ : Builtin error, the operation will fail
+# W5__ : A warning with some external library
+# E5__ : Error with some external library
+# NOIDEA : Error not yet classified
+
+
+class TypeCheckLogger(object, metaclass=Singleton):
+    def __init__(self) -> None:
+        self.warnings = []  # type: List[Tuple[WarningType, str, Optional[Pos]]]
+
+    def new_warning(self, err_code: str, msg: WarningType, pos: Optional[Pos]) -> None:
+        self.warnings.append(
+            (err_code, msg, pos)
+        )

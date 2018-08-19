@@ -104,10 +104,20 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
         exec(newast_comp, tl_globals)
     except NonImplementedTL:
         print("Type checking errors found")
-        print(tl_globals['tl'].errors)
+        print(tl_globals['tl'].TypeCheckLogger().warnings)
+        print()
+        print(tl_globals['vau'])
         print()
         traceback.print_exc()
         raise SystemExit(1)
+
+    if len(tl_globals['tl'].TypeCheckLogger().warnings) > 0:
+        print("Type checking errors found")
+        print()
+        print(tl_globals['tl'].TypeCheckLogger().warnings)
+        print()
+        print(tl_globals['vau'])
+        print()
     else:
         print("Everything ok! It type checked!")
 

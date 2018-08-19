@@ -2,10 +2,10 @@ import typing as ty
 
 from .value import Value, Any
 from .rules import binop_rules
+from .tools import Pos
+from .errors import TypeCheckLogger
 
 __all__ = ['Int', 'Iterable', 'Float', 'ValueAsWithStmt', 'for_loop']
-
-Pos = ty.Tuple[int, int]
 
 
 class Iterable(Value):
@@ -39,11 +39,12 @@ def _Int_op_output_is_int(
                 return Int()
             try:
                 new_n = op(me.n, other.n)  # type: ty.Optional[int]
-            except ZeroDivisionError:
-                # TODO(helq): add warning to list of warnings
+            except ZeroDivisionError as msg:
                 new_n = None
-            except ValueError:  # This only happens with rshift and lshift
+                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
+            except ValueError as msg:  # This only happens with rshift and lshift
                 new_n = None
+                TypeCheckLogger().new_warning("E001", "ValueError: " + str(msg), src_pos)
             return Int(new_n)
         return NotImplemented
 
@@ -64,8 +65,9 @@ def _Int_op_output_is_float(
                 return Float()
             try:
                 new_n = op(me.n, other.n)  # type: ty.Optional[float]
-            except ZeroDivisionError:
+            except ZeroDivisionError as msg:
                 new_n = None
+                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
             return Float(new_n)
         return NotImplemented
 
@@ -86,8 +88,9 @@ def _Int_op_output_is_any(
                 return Any()
             try:
                 new_n = op(me.n, other.n)  # type: ty.Union[int, float, None]
-            except ZeroDivisionError:
+            except ZeroDivisionError as msg:
                 new_n = None
+                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
 
             if isinstance(new_n, int):
                 return Int(new_n)
@@ -154,9 +157,9 @@ def _Float_op_output_is_float(
                 return Float()
             try:
                 new_n = op(me.n, other.n)  # type: ty.Optional[float]
-            except ZeroDivisionError:
-                # TODO(helq): add warning
+            except ZeroDivisionError as msg:
                 new_n = None
+                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
 
             return Float(new_n)
         return NotImplemented
@@ -178,15 +181,23 @@ def _Float_op_output_is_any(
                 return Any()
             try:
                 new_n = op(me.n, other.n)  # type: ty.Union[float, int, complex, None]
-            except ZeroDivisionError:
-                # TODO(helq): add warning
+            except ZeroDivisionError as msg:
                 new_n = None
+                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
 
             if isinstance(new_n, int):
                 return Int(new_n)
             if isinstance(new_n, float):
                 return Float(new_n)
+            if new_n is not None:
+                TypeCheckLogger().new_warning(
+                    "W001",
+                    "Weird return value: I expected an int or float from operating {} with "
+                    "{} but got a {} instead".format(me.n, other.n, type(new_n)),
+                    src_pos)
+
             return Any()
+
         return NotImplemented
 
     return binop

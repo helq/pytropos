@@ -1,4 +1,5 @@
 import typing as ty
+from typing import Union, Tuple, Optional
 
 from .value import Value, Any
 from .tools import Pos
@@ -8,7 +9,7 @@ __all__ = [
     'binary_operator_operations', 'congruent', 'unite'
 ]
 
-BinOp = ty.Callable[[Value, Value], Value]
+BinOp = ty.Callable[[Value, Value, Optional[Pos]], Value]
 
 binary_operator_operations = [
     ('add',      ('__add__',      '__radd__'     )),  # noqa: E202
@@ -37,18 +38,17 @@ BINARY_OP_METHODS = []  # type: ty.List[str]
 #         return Any()
 #     return res
 
-
 def __create_binop(
-        dunder_ops: ty.Tuple[str, ...]
-) -> ty.Callable[[Value, Value, ty.Optional[Pos]], ty.Union[Value, 'NotImplemented']]:
+        dunder_ops: Union[Tuple[str], Tuple[str, str]]
+) -> ty.Callable[[Value, Value, Optional[Pos]], Union[Value, 'NotImplemented']]:
 
-    def binop(valL: Value, valR: Value, src_pos: ty.Optional[Pos] = None) -> Value:
+    def binop(valL: Value, valR: Value, src_pos: Optional[Pos] = None) -> Value:
         if isinstance(valL, Any) or isinstance(valR, Any):
             return Any()
 
-        res = binop_rules.run(dunder_ops[0], valL, valR)  # eg, trying with __add__
+        res = binop_rules.run(dunder_ops[0], valL, valR, src_pos)  # eg, trying with __add__
         if res is NotImplemented and len(dunder_ops) > 1:
-            res = binop_rules.run(dunder_ops[1], valR, valL)  # eg, trying with __radd__
+            res = binop_rules.run(dunder_ops[1], valR, valL, src_pos)  # eg, trying with __radd__
         if res is NotImplemented:
             # TODO(helq): add warning indicating that the two values cannot be `sub`ed
             return Any()
@@ -97,7 +97,13 @@ class Rules(object):
             return False
         return typeL in self._rules[rule_name]
 
-    def run(self, rule_name: str, valL: Value, valR: Value) -> ty.Union[Value, 'NotImplemented']:
+    def run(self,
+            rule_name: str,
+            valL: Value,
+            valR: Value,
+            src_pos: Optional[Pos]
+            ) -> ty.Union[Value, 'NotImplemented']:
+
         # print("running rule {} with params: {} and {}".format(rule_name, valL, valR))
         if rule_name not in BINARY_OP_METHODS:
             raise RuleError("`{}` is not a rule I manage".format(rule_name))
@@ -107,7 +113,7 @@ class Rules(object):
            or type(valL) not in self._rules[rule_name]:
             return NotImplemented
 
-        return self._rules[rule_name][type(valL)](valL, valR)
+        return self._rules[rule_name][type(valL)](valL, valR, src_pos)
 
     def extractRulesFromClass(self, klass: ty.Type) -> ty.Type:
         for rule_name in BINARY_OP_METHODS:
@@ -200,7 +206,7 @@ if __name__ == '__main__':  # noqa: C901
 
     # rules.addRule('__sub__', A, A.__sub__)  # type: ignore
     binop_rules.extractRulesFromClass(A)
-    print(binop_rules.run('__sub__', A(4), A(3)))
+    print(binop_rules.run('__sub__', A(4), A(3), None))
     # print(A(4) - A(3))
     print(sub(A(4), A(3)))  # type: ignore  # noqa: F821
 

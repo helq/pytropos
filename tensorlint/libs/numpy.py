@@ -1,6 +1,6 @@
 import typing as ty
 from tensorlint.internals import (
-    Any, Value, Int, errors, TL_TypeError, binop_rules
+    Any, Value, Int, TypeCheckLogger, binop_rules
 )
 from tensorlint.internals.tools import NonImplementedTL, Pos
 
@@ -13,7 +13,7 @@ T = ty.TypeVar('T')
 
 
 @binop_rules.extractRulesFromClass
-class array(Value):
+class ndarray(Value):
     type_ = None  # type: ty.Any
     shape = None  # type: ty.Tuple[Int, ...]
 
@@ -32,10 +32,10 @@ class array(Value):
             # TODO(helq): the type of the resulting tensor is not the original,
             # but it depends on the value of the variable
             if self.type_ == int:
-                return array(self.type_, self.shape)
+                return ndarray(self.type_, self.shape)
             else:
-                return array(Any, self.shape)
-        elif isinstance(other, array):
+                return ndarray(Any, self.shape)
+        elif isinstance(other, ndarray):
             if self.type_ != other.type_:
                 new_type = Any
             else:
@@ -46,24 +46,25 @@ class array(Value):
                 new_shape = self.shape
             else:
                 # TODO(helq): Improve error, and send signal to stop computing everything
-                global errors
-                errors.append(TL_TypeError(
-                    "The shapes can't be united, they are not the same", -1, -1))
+                TypeCheckLogger().new_warning(
+                    "NOIDEA",
+                    "The shapes can't be united, they are not the same",
+                    (-1, -1))
                 raise NonImplementedTL("`tensor.__add__` hasn't been completely implemented yet")
-            return array(new_type, new_shape)
+            return ndarray(new_type, new_shape)
         else:
             return NotImplemented
 
-    def __add__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def add_op(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
         return self.__binop('add', other, src_pos)  # type: ignore
 
-    def __mul__(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def mul_op(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
         return self.__binop('mul', other, src_pos)  # type: ignore
 
     # TODO(helq): make this abstract, each class should implement it or use
     # reflection to print the right name always
     def __repr__(self) -> str:
-        return 'np.array('+repr(self.type_)+', '+repr(self.shape)+')'
+        return 'np.ndarray('+repr(self.type_)+', '+repr(self.shape)+')'
 
 
 class NdarrayDtype():
@@ -80,10 +81,10 @@ class float32(NdarrayDtype):
 
 def zeros(val: ty.Tuple[Int, ...],
           dtype: ty.Type = float64,
-          src_pos: ty.Optional[Pos] = None) -> array:
+          src_pos: ty.Optional[Pos] = None) -> ndarray:
     # TODO(helq): typecheck that the pass values are of the correct type and
     # that they are valid (no negative values)
-    return array(dtype, val)
+    return ndarray(dtype, val)
 
 
 # TODO(helq): check that the values passed are ints, and not other thing
@@ -91,19 +92,22 @@ def zeros(val: ty.Tuple[Int, ...],
 # values
 def ones(val: ty.Tuple[Int, ...],
          dtype: ty.Type = float64,
-         src_pos: ty.Optional[Pos] = None) -> array:
-    return array(dtype, val)
+         src_pos: ty.Optional[Pos] = None) -> ndarray:
+    return ndarray(dtype, val)
 
 
 def dot(vall: Value,
         valr: Value,
         src_pos: ty.Optional[Pos] = None) -> Value:
-    if isinstance(vall, array) and isinstance(valr, array):
+    if isinstance(vall, ndarray) and isinstance(valr, ndarray):
         if vall.type_ == valr.type_:
             if len(vall.shape) != 2 or len(valr.shape) != 2:
                 line, col = (-1, -1) if src_pos is None else src_pos
                 # TODO(helq): add values of the shapes of the tensors
-                errors.append(TL_TypeError("Some tensor doesn't have dimension 2", line, col))
+                TypeCheckLogger().new_warning(
+                    "NOIDEA",
+                    "Some tensor doesn't have dimension 2",
+                    (line, col))
                 raise NonImplementedTL(
                     "`numpy.dot` matrix multiplication requires tensors of dimension 2")
             # TODO(helq): define __eq__ to check for equality of 'Value's
@@ -113,17 +117,19 @@ def dot(vall: Value,
                 if (sleft is not None and sright is not None):
                     if sleft != sright:
                         line, col = (-1, -1) if src_pos is None else src_pos
-                        errors.append(TL_TypeError(
-                            "Matrices are not compatible for multiplication", line, col))
+                        TypeCheckLogger().new_warning(
+                            "NOIDEA",
+                            "Matrices are not compatible for multiplication",
+                            (line, col))
                         # TODO(helq): create warnings in case an operation potentially
                         # fails but we're not sure, like when adding two numbers and one of
                         # them is a symbol
                         raise NonImplementedTL(
                             "`numpy.dot` check for matrix compatibility not completely coded")
                     else:
-                        return array(vall.type_, (vall.shape[0], valr.shape[1]))
+                        return ndarray(vall.type_, (vall.shape[0], valr.shape[1]))
 
         print(vall.type_, valr.type_)
         raise NonImplementedTL(
             "`numpy.dot` hasn't been implemented for tensors of different types yet :(")
-    raise NonImplementedTL("`numpy.dot` fails if one of the parameters is not an array")
+    raise NonImplementedTL("`numpy.dot` fails if one of the parameters is not an ndarray")

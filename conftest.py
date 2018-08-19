@@ -7,6 +7,8 @@ collect_ignore = ['tests/example_code']
 # Neomake (vim plugin) generates sometimes files that should be ignored
 for file in glob('tests/**/.*@neomake_*.py'):
     collect_ignore.append(file)
+for file in glob('tests/.*@neomake_*.py'):
+    collect_ignore.append(file)
 
 for file in glob('tests/**/tools.py'):
     collect_ignore.append(file)

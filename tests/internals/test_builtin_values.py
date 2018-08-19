@@ -4,15 +4,17 @@ from tools import almost_any_value
 
 from tensorlint.internals.builtin_values import Int, Float
 from tensorlint.internals.value import Any, Value
+from tensorlint.internals.errors import TypeCheckLogger
+from tensorlint.internals.tools import Pos
+
+import re
 
 from pytest import raises
 from hypothesis import given
 import hypothesis.strategies as st
-# from hypothesis import infer
 
 import tensorlint.internals.rules as tlo
 import operator as ops
-# from itertools import product
 import math
 
 from typing import Optional
@@ -22,6 +24,10 @@ ints_st = st.one_of(st.integers(), st.none())
 floats_st = st.one_of(st.floats(), st.none())
 ints_floats_st = st.one_of(st.integers(min_value=-100, max_value=100),
                            st.floats(min_value=-100, max_value=100), st.none())
+
+
+zeroDivisionError = re.compile('ZeroDivisionError')
+valueError = re.compile('ValueError')
 
 
 def get_ops(ls: ty.List[str]) -> ty.List[ty.Tuple[ty.Any, ty.Any]]:
@@ -77,16 +83,20 @@ class TestIntFloat(object):
         for division operations
         """
         for op, vop in get_ops(['truediv', 'floordiv', 'mod']):
+            TypeCheckLogger.clean_sing()
+
             val = vop(Int(i), Int(j))
             if val.n is None:
                 with raises(ZeroDivisionError):
                     op(i, j)
-                # TODO(helq): add checking of added warning
+                assert len(TypeCheckLogger().warnings) == 1
+                assert zeroDivisionError.match(TypeCheckLogger().warnings[0][1])
             else:
                 assert isinstance(val, (Float, Int))
                 py_val = op(i, j)
                 assert py_val == val.n
                 assert type(py_val) is type(val.n)  # noqa: E721
+                assert len(TypeCheckLogger().warnings) == 0
 
     # @given(i=infer, j=infer)
     @given(st.builds(Int, ints_st),
@@ -108,12 +118,17 @@ class TestIntFloat(object):
         for all operations (+*/...) and Values
         """
         for op, vop in value_ops:
+            TypeCheckLogger.clean_sing()
+
             new_val = vop(Float(i), Float(j))
             if new_val.n is None:
                 with raises(ZeroDivisionError):
                     op(i, j)
+                assert len(TypeCheckLogger().warnings) == 1
+                assert zeroDivisionError.match(TypeCheckLogger().warnings[0][1])
             else:
                 assert check_float_equality(op(i, j), new_val.n)
+                assert len(TypeCheckLogger().warnings) == 0
 
     @given(floats_st, floats_st)
     def test_float_adding(self, i: Optional[float], j: Optional[float]) -> None:
@@ -136,19 +151,39 @@ class TestIntFloat(object):
     def test_float_and_ints_comform_to_baseline_python_divs(
             self, i: int, j: float) -> None:
         for op, vop in get_ops(['truediv', 'floordiv', 'mod']):
+            TypeCheckLogger.clean_sing()
+
             if j == 0:
                 with raises(ZeroDivisionError):
                     op(i, j)
                 assert vop(Int(i), Float(j)).n is None
+
+                assert len(TypeCheckLogger().warnings) == 1
+                assert zeroDivisionError.match(TypeCheckLogger().warnings[0][1])
             else:
                 assert check_float_equality( op(i, j), vop(Int(i), Float(j)).n )  # noqa: E201,E202
+                assert len(TypeCheckLogger().warnings) == 0
 
             if i == 0:
                 with raises(ZeroDivisionError):
                     op(j, i)
                 assert vop(Float(j), Int(i)).n is None
+
+                assert len(TypeCheckLogger().warnings) > 0
+                assert zeroDivisionError.match(TypeCheckLogger().warnings[-1][1])
             else:
                 assert check_float_equality( op(j, i), vop(Float(j), Int(i)).n )  # noqa: E201,E202
+
+    @given(st.one_of(
+        st.tuples(st.integers(min_value=0), st.integers(min_value=0)),
+        st.none()
+    ))
+    def test_error_pos_is_correctly_passed_to_warning(self, src_pos: ty.Optional[Pos]) -> None:
+        for op, vop in get_ops(['truediv', 'floordiv', 'mod']):
+            TypeCheckLogger.clean_sing()
+            vop(Float(1.0), Float(0.0), src_pos)
+            assert len(TypeCheckLogger().warnings) == 1
+            assert TypeCheckLogger().warnings[-1][2] == src_pos
 
     @given(ints_st, floats_st)
     def test_float_from_operating_int_with_float(
@@ -172,28 +207,22 @@ class TestIntFloat(object):
     ) -> None:
         # event('i has type {}'.format(type(i).__name__))
         # event('j has type {}'.format(type(j).__name__))
+        TypeCheckLogger.clean_sing()
 
         val1 = Float(i) if isinstance(i, float) else Int(i)
         val2 = Int(j) if isinstance(j, int) else Float(j)
 
         if i is not None and j is not None:
             new_val1 = tlo.pow(val1, val2)  # type: ignore
-            new_val2 = tlo.pow(val2, val1)  # type: ignore
-            if new_val1.n is None:
-                with raises(Exception):
-                    ops.pow(i, j)
-            elif isinstance(new_val1, Any):
-                # TODO(helq): check for a warning added to the list of warnings
-                ...
+            if isinstance(new_val1, Any):
+                assert len(TypeCheckLogger().warnings) == 1
             else:
                 assert ops.pow(i, j) == new_val1.n
+                assert len(TypeCheckLogger().warnings) == 0
 
-            if new_val2.n is None:
-                with raises(Exception):
-                    ops.pow(j, i)
-            elif isinstance(new_val2, Any):
-                # TODO(helq): check for a warning added to the list of warnings
-                ...
+            new_val2 = tlo.pow(val2, val1)  # type: ignore
+            if isinstance(new_val2, Any):
+                assert len(TypeCheckLogger().warnings) > 0
             else:
                 assert ops.pow(j, i) == new_val2.n
         else:
@@ -204,27 +233,32 @@ class TestIntFloat(object):
            st.one_of(st.integers(min_value=-2000, max_value=2000), st.none()))
     def test_shifts_with_some_values(
             self, i: Optional[int], j: Optional[int]) -> None:
+        TypeCheckLogger.clean_sing()
+
         new_val1 = tlo.lshift(Int(i), Int(j))  # type: ignore
         new_val2 = tlo.rshift(Int(i), Int(j))  # type: ignore
 
         if i is None or j is None:
-            with raises(TypeError):
-                ops.lshift(i, j)
             assert new_val1.n is None
             assert new_val2.n is None
+            assert len(TypeCheckLogger().warnings) == 0
             return
 
         if new_val1.n is None:
             with raises(ValueError):
                 ops.lshift(i, j)
+            assert len(TypeCheckLogger().warnings) > 0
+            assert valueError.match(TypeCheckLogger().warnings[0][1])
         else:
-            assert ops.lshift(i, j) == tlo.lshift(Int(i), Int(j)).n  # type: ignore
+            assert ops.lshift(i, j) == new_val1.n
 
         if new_val2.n is None:
             with raises(ValueError):
                 ops.rshift(i, j)
+            assert len(TypeCheckLogger().warnings) > 0
+            assert valueError.match(TypeCheckLogger().warnings[-1][1])
         else:
-            assert ops.rshift(i, j) == tlo.rshift(Int(i), Int(j)).n  # type: ignore
+            assert ops.rshift(i, j) == new_val2.n
 
 
 almost_anything = \
