@@ -1,7 +1,7 @@
 import typing as ty
 from typing import Union, Tuple, Optional
 
-from .value import Value, Any
+from .values.value import Value, Any
 from .tools import Pos
 
 __all__ = [

@@ -1,16 +1,19 @@
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, Callable
 from typing import Union  # noqa: F401
 import typing as ty
 from types import ModuleType
 
-from ..value import Value, Any
+from ..values.value import Value, Any
+from ..errors import TypeCheckLogger
 
 from .branch_node import BranchNode
 from .scope import FrozenScope, Scope
 
+__all__ = ['Vault', 'Function']
+
 
 class Function(Value):
-    def __init__(self, fun: ty.Callable) -> None:
+    def __init__(self, fun: Callable) -> None:
         self.__fun = fun
         self.__closure = None  # type: Optional[Vault]
         # This is the only introspection hack that may differ between implementations of python.
@@ -47,25 +50,6 @@ class Function(Value):
         return self.__fun(*args, **kargs)
 
 
-T = ty.TypeVar('T')
-
-
-class Ptr(ty.Generic[T]):
-    def __init__(self, val: Optional[T] = None) -> None:
-        self.__val = val
-
-    @property
-    def val(self) -> T:
-        if self.__val is None:
-            raise Exception("There is no value to return yet,"
-                            " you haven't yet (probably) exited the scope")
-        return self.__val
-
-    @val.setter
-    def val(self, val: T) -> None:
-        self.__val = val
-
-
 # Closure = List[Tuple[Tuple[str, ...], Scope]]
 ClosureDict = Dict[int, FrozenScope]
 VaultList = List[Dict[str, ty.Any]]
@@ -91,10 +75,8 @@ class Vault(object):
         self.__locals    = set()  # type: Set[str]
         self.__globals   = set()  # type: Set[str]
         self.__nonlocals = {}     # type: Dict[str, int]
-        self.__branch_diff = []   # type: List[Ptr[Tuple[VaultList, ClosureDict]]]
         self.__branch_names = branch_names[:]
-        self.__next_branch_name = None  # type: Optional[str]
-        # self.childVaults = set()  # type: Set[Vault]
+
         if vault is None:
             self.__vault: List[Scope] = [Scope()]
             self.__global = True
@@ -154,7 +136,16 @@ class Vault(object):
     def getClosures(self) -> Dict[int, Scope]:
         return self.__getClosures()
 
+    # TODO(helq): modify get item so we can pass later the position of the error. Maybe
+    # ask for the variable together with its position, ie, key would be
+    # Tuple[str, Pos] or Union[str, Tuple[str, Pos]]
     def __getitem__(self, key: str) -> ty.Any:
+        # if isinstance(key, tuple):
+        #     key_, src_pos = key
+        # else:
+        #     key_ = key
+        #     src_pos = None
+
         if self.__global or key in self.__globals:
             scope_i = 0
         elif key in self.__nonlocals:
@@ -166,22 +157,23 @@ class Vault(object):
         else:
             # assuming is in global scope
             scope_i = 0
-            # TODO(helq): add warning!!!
-            # raise KeyError(
-            #     "The variable `{}` hasn't been defined as global, local or nonlocal"
-            #     .format(key))
 
         scope = self.__vault[scope_i]
         if key in scope:
             return scope[key]
 
-        # TODO(helq): an error should be added to the list of errors, because
-        # this variable doesn't exist
+        TypeCheckLogger().new_warning(
+            "W201",
+            "Variable `{}` doesn't exists in the environment".format(key),
+            None
+        )
         # TODO(helq): check if what was passed is a builtin, if it is, maybe
         # you should return its typing version, just to check for correctness
         # of the call of the builtin
         return Any(key)
 
+    # TODO(helq): setitem shouldn't fail! assume global variable if it hasn't being
+    # defined as nonlocal or local!
     def __setitem__(self, key: str, value: ty.Any) -> None:
         if self.__global or key in self.__locals:
             self.__vault[-1][key] = value
@@ -223,39 +215,46 @@ class Vault(object):
                 for scope in self.__vault
             ])+"])"
 
-    def newBranch(self, branch_name: str) -> 'Vault':
-        self.__next_branch_name = branch_name
-        return self
+    def _run_branch(self,
+                    branch: Callable[[], None],
+                    branch_name: str = 'new_branch'
+                    ) -> Tuple[VaultList, ClosureDict]:
+        self.__branch_names.append(branch_name)
 
-    def __enter__(self) -> Ptr[Tuple[VaultList, ClosureDict]]:
-        # print("Entering vault")
-        if self.__next_branch_name is None:
-            self.__branch_names.append('new_branch')
-        else:
-            self.__branch_names.append(self.__next_branch_name)
-            self.__next_branch_name = None
         BranchNode.current_branch = \
             BranchNode.current_branch.newChild('.'.join(self.__branch_names))
-        # assert self.__branch_diff is None, "A branch diff is inside of Vault, shouldn't be"
-        self.__branch_diff.append(Ptr())
-        return self.__branch_diff[-1]
 
-    def __exit__(self, exc_type, exc_value, traceback) -> Optional[bool]:  # type: ignore
-        # TODO(helq): check if something has been changed from the original vault
-        assert len(self.__branch_diff) != 0, \
-            "Branch diff dissapeared, there is no way I can" \
-            " return the vault modifications done inside the branch"
-        self.__branch_diff[-1].val = (
+        branch()  # running if branch code
+
+        branch_vault = (
             [FrozenScope(scope) for scope in self.__vault],  # vault copy
             {id_: FrozenScope(scope) for id_, scope in self.getClosures().items()}  # closures copy
         )
-        self.__branch_diff.pop()
+
         assert BranchNode.current_branch.parent is not None, \
             "Error trying to come back to previous branch state, unreachable"
         BranchNode.current_branch = BranchNode.current_branch.parent
-        assert len(self.__branch_names) > 1, \
-            "There should be at least one branch name in the list of branch names"
+
         self.__branch_names.pop()
+
+        return branch_vault  # type: ignore
+
+    def runIfBranching(self,
+                       if_res: ty.Any,  # this should be `Value`
+                       if_branch: Callable[[], None],
+                       else_branch: Optional[Callable[[], None]] = None
+                       ) -> None:
+        if_vault = self._run_branch(if_branch, 'if')
+
+        if else_branch is None:
+            if if_res:
+                self._replaceWithBranch(if_vault)
+        else:
+            else_vault = self._run_branch(else_branch, 'else')
+            if if_res:
+                self._replaceWithBranch(if_vault)
+            else:
+                self._replaceWithBranch(else_vault)
 
     def add_global(self, *keys: str) -> None:
         self.__globals.update(keys)
@@ -289,11 +288,9 @@ class Vault(object):
             assert k not in self.__nonlocals, \
                 "Variable `{}` has already been declared as nonlocal".format(k)
 
-    # TODO(helq): before performing this, check all objects manipulated inherit
-    # from Value, if not, something went terribly wrong!
-    def replaceWithBranch(self,
-                          branch: Ptr[Tuple[VaultList, ClosureDict]]
-                          ) -> None:
+    def _replaceWithBranch(self,
+                           branch: Tuple[VaultList, ClosureDict]
+                           ) -> None:
         somethingchanged = True
         # this is brute force, I don't know how to know which scopes need to be changed once
         # other some function has changed
@@ -301,7 +298,7 @@ class Vault(object):
             # branch.val can throw an exception if nothing has been set inside
             # of it, this often happens if you try to examine its value before
             # exiting the branch
-            somethingchanged = self.__replaceWithBranch(branch.val)
+            somethingchanged = self.__replaceWithBranch(branch)
 
     # returns true if something was modified
     def __replaceWithBranch(self, branch: Tuple[VaultList, ClosureDict]) -> bool:
@@ -329,6 +326,7 @@ class Vault(object):
 
         return modified
 
+    # to simulate * (star) import
     def load_module(self, mod: ModuleType) -> None:
         if hasattr(mod, '__all__'):
             exported_vars = getattr(mod, '__all__')  # type: List[str]

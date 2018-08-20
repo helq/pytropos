@@ -2,8 +2,8 @@
 
 from tools import almost_any_value
 
-from tensorlint.internals.builtin_values import Int, Float, Bool
-from tensorlint.internals.value import Any, Value
+from tensorlint.internals.values.builtin_values import Int, Float, Bool
+from tensorlint.internals.values.value import Any, Value
 from tensorlint.internals.errors import TypeCheckLogger
 from tensorlint.internals.tools import Pos
 

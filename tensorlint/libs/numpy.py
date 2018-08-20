@@ -1,7 +1,8 @@
 import typing as ty
 from tensorlint.internals import (
-    Any, Value, Int, TypeCheckLogger, binop_rules
+    Any, Value, Int, binop_rules
 )
+from tensorlint.internals.errors import TypeCheckLogger
 from tensorlint.internals.tools import NonImplementedTL, Pos
 
 __all__ = ['zeros', 'ones', 'dot', 'float32', 'float64']

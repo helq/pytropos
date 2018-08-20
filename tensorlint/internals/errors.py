@@ -17,6 +17,7 @@ WarningType = str
 # Warning scheme:
 # W0__ : Builtin warning, something may fail
 # E0__ : Builtin error, the operation will fail
+# W2__ : A warning on an attribute that doesn't exists
 # W5__ : A warning with some external library
 # E5__ : Error with some external library
 # NOIDEA : Error not yet classified

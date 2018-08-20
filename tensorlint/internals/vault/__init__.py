@@ -1,3 +1,3 @@
-from .vault import Vault
+from .vault import Vault, Function
 
-__all__ = ["Vault"]
+__all__ = ['Vault', 'Function']

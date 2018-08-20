@@ -2,7 +2,7 @@ from pytest import raises
 import pytest
 from tensorlint import metadata
 from tensorlint.main import main
-from tensorlint import TypeCheckLogger
+from tensorlint.internals.errors import TypeCheckLogger
 
 from typing import Any, Tuple
 

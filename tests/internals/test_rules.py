@@ -1,5 +1,5 @@
-from tensorlint.internals.value import Any, Value
-from tensorlint.internals.builtin_values import Int, Float
+from tensorlint.internals.values.value import Any, Value
+from tensorlint.internals.values.builtin_values import Int, Float
 from tensorlint.internals.rules import congruent, unite
 
 import hypothesis.strategies as st

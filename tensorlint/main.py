@@ -11,8 +11,8 @@ import argparse
 import sys
 
 from tensorlint import metadata
-import tensorlint.internals.debug_print as debug_print
-from tensorlint.internals.debug_print import dprint, derror
+import tensorlint.debug_print as debug_print
+from tensorlint.debug_print import dprint, derror
 
 import traceback
 
@@ -108,6 +108,7 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
     tl_globals = {}  # type: Dict[str, Any]
 
     from tensorlint.internals.tools import NonImplementedTL
+    from tensorlint.internals.errors import TypeCheckLogger
     try:
         # at the module level, locals and globals are the same
         # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
@@ -118,7 +119,7 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
         derror("Please run the code again with `-vvv` parameter")
 
         derror("\nType checking errors found:", verb=2)
-        derror(tl_globals['tl'].TypeCheckLogger(), verb=2)
+        derror(TypeCheckLogger(), verb=2)
 
         derror("\nValue of variables at the moment of the failure:", metadata.url, verb=2)
         derror(tl_globals['vau'], end='\n\n', verb=2)
@@ -128,11 +129,11 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
 
     # TODO(helq): capture any other failureu
 
-    if len(tl_globals['tl'].TypeCheckLogger().warnings) > 0:
+    if len(TypeCheckLogger().warnings) > 0:
         derror("\nValue of variables at the moment of the failure:", verb=3)
         derror(tl_globals['vau'], end='\n\n', verb=3)
 
-        dprint(tl_globals['tl'].TypeCheckLogger())
+        derror(TypeCheckLogger())
         raise SystemExit(1)
     else:
         dprint('No type checking error found.', verb=1)

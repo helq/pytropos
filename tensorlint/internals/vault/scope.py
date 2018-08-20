@@ -4,20 +4,8 @@ import typing as ty
 
 from .branch_node import BranchNode, global_branch
 
+__all__ = ['Scope', 'FrozenScope']
 
-# TODO(helq): implement Cell object. It should have a behaivor similar to
-# `Scope`, in which it can create carry information about an object in memory
-# different in each branch. The main information it can carry is how many
-# references an object (and where are those references (the scopes ids)).
-# It carries the information in different branches, and its updated each time
-# when a scope adds it or deletes it.
-# class Cell(object):
-#     @property
-#     def obj(self) -> ty.Any:
-#         return self.__obj
-#
-#     def __init__(self, obj: ty.Any) -> None:
-#         self.__obj = obj
 
 # A frozen dict
 class FrozenScope(dict):
@@ -43,12 +31,11 @@ class FrozenScope(dict):
 
 class Scope(object):
     __new_id = 0  # type: int
-    # All Scope in existence!
+    # All Scope's in existence!
     # Many are unreachable, usually the Garbage Collector doesn't kill them all
-    # immediately. Thus, this is only an estimate of how many scopes (layerable
-    # dict) are reachable.
+    # immediately. Thus, this is only an estimate of how many scopes are reachable.
     # len(__existing_ids) >= `num of reachable scopes`
-    __existing_ids = set()  # type: Set[int]
+    # __existing_ids = set()  # type: Set[int]
 
     @classmethod
     def __getnewid(cls) -> int:
@@ -63,14 +50,14 @@ class Scope(object):
     def __init__(self) -> None:
         self.__layers = [({}, set())]  # type: List[Tuple[Dict[str,ty.Any], Set[str]]]
         self.__branch = global_branch
-        self.__id = id_ = Scope.__getnewid()
-        Scope.__existing_ids.add(id_)
+        self.__id = Scope.__getnewid()
+        # Scope.__existing_ids.add(self.__id)
         if self.__branch != BranchNode.current_branch:
             self.__moveToNewBranch()
 
-    def __del__(self) -> None:
-        # print("I'm dying T_T ({})".format(self.__id))
-        Scope.__existing_ids.remove(self.__id)
+    # def __del__(self) -> None:
+    #     # print("I'm dying T_T ({})".format(self.__id))
+    #     Scope.__existing_ids.remove(self.__id)
 
     def __getitem__(self, key: str) -> ty.Any:
         if self.__branch != BranchNode.current_branch:
@@ -180,7 +167,7 @@ class Scope(object):
 
         self.__branch = BranchNode.current_branch
 
-    # returns if something has been modified or not
+    # tells us if something has been modified or not
     def updateAndDelete(self, other: Dict[str, ty.Any]) -> bool:
         modified = False
 

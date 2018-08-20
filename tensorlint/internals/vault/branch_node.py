@@ -1,5 +1,7 @@
 from typing import List, Optional, Tuple
 
+__all__ = ['BranchNode']
+
 
 class BranchNode(object):
     current_branch = None  # type: BranchNode

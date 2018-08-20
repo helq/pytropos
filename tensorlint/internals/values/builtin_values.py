@@ -1,9 +1,9 @@
 import typing as ty
 
 from .value import Value, Any
-from .rules import binop_rules
-from .tools import Pos
-from .errors import TypeCheckLogger
+from ..rules import binop_rules
+from ..tools import Pos
+from ..errors import TypeCheckLogger
 
 __all__ = ['Int', 'Float', 'Bool', 'Iterable', 'ValueAsWithStmt', 'for_loop']
 
