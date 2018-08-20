@@ -126,13 +126,12 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
 
         traceback.print_exc()
         raise SystemExit(2)
+    # TODO(helq): capture any other failures (exceptions)
 
-    # TODO(helq): capture any other failureu
+    derror("\nLast computed variables values (vault):", verb=3)
+    derror(tl_globals['vau'], end='\n\n', verb=3)
 
     if len(TypeCheckLogger().warnings) > 0:
-        derror("\nValue of variables at the moment of the failure:", verb=3)
-        derror(tl_globals['vau'], end='\n\n', verb=3)
-
         derror(TypeCheckLogger())
         raise SystemExit(1)
     else:

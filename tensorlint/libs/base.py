@@ -1,9 +1,9 @@
-from tensorlint.internals import Int, Iterable
+from tensorlint.internals import Int, Iterable, Any
 # from tensorlint.internals.tools import NonImplementedTL
 
 from typing import Optional, Tuple
 
-__all__ = ['range']
+__all__ = ['range', 'print']
 
 Pos = Tuple[int, int]
 
@@ -15,3 +15,6 @@ def range(val: Int,
     # TODO(helq): optionally, in the future we could check for the type of the
     # value passed, it should be an int
     return Iterable(Int())
+
+
+print = Any()

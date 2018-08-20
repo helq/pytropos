@@ -1,7 +1,7 @@
 import typing as ty
-from tensorlint.internals import (
-    Any, Value, Int, binop_rules
-)
+from tensorlint.internals.values.value import Value
+from tensorlint.internals import Any, Int
+from tensorlint.internals.rules import binop_rules
 from tensorlint.internals.errors import TypeCheckLogger
 from tensorlint.internals.tools import NonImplementedTL, Pos
 

@@ -79,10 +79,15 @@ def import_transformation(
         add_params: AddParams
 ) -> OutputPartialTrans:
     if isinstance(v, ast3.Import):
+        non_supported_modules: List[str] = []
         modules_supported:    List[Tuple[str, Optional[str]]] = []
         for alias in v.names:
             if alias.name in ['numpy']:
                 modules_supported.append( (alias.name, alias.asname) )  # noqa: E201,E202
+            else:
+                non_supported_modules.append(
+                    alias.name if alias.asname is None else alias.asname
+                )
 
         libs: List[ast3.AST] = []
         if len(modules_supported) > 0:
@@ -97,6 +102,16 @@ def import_transformation(
                     '\n'.join([
                         "vau['{name}'] = {name}".format(name=name if asname is None else asname)
                         for name, asname in modules_supported
+                    ])
+                ).body
+            )
+
+        if len(non_supported_modules) > 0:
+            libs.extend(
+                ast3.parse(  # type: ignore
+                    '\n'.join([
+                        "vau['{name}'] = tl.Any()".format(name=name)
+                        for name in non_supported_modules
                     ])
                 ).body
             )
