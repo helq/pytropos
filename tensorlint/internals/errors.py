@@ -30,3 +30,22 @@ class TypeCheckLogger(object, metaclass=Singleton):
         self.warnings.append(
             (err_code, msg, pos)
         )
+
+    def __str__(self) -> str:
+        return '\n'.join(map(_warning_to_str, self.warnings))
+
+
+def _warning_to_str(warn: Tuple[WarningType, str, Optional[Pos]]) -> str:
+    # TODO(helq): add file to the stuff to the stuff position
+    if warn[2] is None:
+        return "<file>::: {warntype} {msg}".format(
+            warntype=warn[0],
+            msg=warn[1]
+        )
+    else:
+        return "<file>:{lineno}:{col}: {warntype} {msg}".format(
+            lineno=warn[2][0],
+            col=warn[2][1],
+            warntype=warn[0],
+            msg=warn[1]
+        )

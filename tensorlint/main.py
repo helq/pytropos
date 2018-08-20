@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 """Program entry point"""
 
 from __future__ import print_function
@@ -12,6 +11,8 @@ import argparse
 import sys
 
 from tensorlint import metadata
+import tensorlint.internals.debug_print as debug_print
+from tensorlint.internals.debug_print import dprint, derror
 
 import traceback
 
@@ -29,7 +30,7 @@ def main(argv: List[str]) -> int:
     epilog = (
         '{project} {version}\n' +
         '\n' +
-        '{authors}' +
+        '{authors}\n' +
         'URL: <{url}>)\n'
     ).format(
         project=metadata.project,
@@ -42,10 +43,16 @@ def main(argv: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=metadata.description,
         epilog=epilog)
+
     arg_parser.add_argument(
         '-V', '--version',
         action='version',
         version='{0} {1}'.format(metadata.project, metadata.version))
+
+    arg_parser.add_argument(
+        '-v', '--verbose', action='count', default=0,
+        help="Shows internal parameters. This option can be stacked, so `-vvv` is possible (max: 3)"
+    )
 
     arg_parser.add_argument(
         'file',
@@ -54,9 +61,13 @@ def main(argv: List[str]) -> int:
 
     args_parsed = arg_parser.parse_args(args=argv[1:])
 
-    print("Hi there! this is the starting point of everything")
+    # Highest level of verbosity is 3
+    debug_print.verbosity = 3 if args_parsed.verbose > 3 else args_parsed.verbose
 
-    print("Parsing and un-parsing a python file (it should preserve all type comments)")
+    dprint("Starting tensorlint", verb=1)
+
+    dprint("Parsing and un-parsing a python file (it should preserve all type comments)", verb=2)
+
     from typed_ast import ast3
     from typed_astunparse import unparse
     from tensorlint.translate import to_tensorlint, to_python_ast
@@ -65,16 +76,15 @@ def main(argv: List[str]) -> int:
     ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
     newast = to_tensorlint(ast_)
 
-    print("Original file:")
-    # print(ast3.dump(ast_))
-    print(unparse(ast_))
-    print("Modified file:")
-    # print(ast3.dump(newast))
-    print(unparse(newast))
+    dprint("Original file:", verb=2)
+    dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
+    dprint(unparse(ast_), verb=2)
+    dprint("Modified file:", verb=2)
+    dprint("AST dump of modified file:", ast3.dump(newast), verb=3)
+    dprint(unparse(newast), verb=2)
 
     import ast
     newast_py = ast.fix_missing_locations(to_python_ast(newast))
-    # print(ast.dump(newast_py))
     # import astpretty
     # astpretty.pprint(newast_py)
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
@@ -88,7 +98,6 @@ def main(argv: List[str]) -> int:
 
     p.start()
     p.join()
-    # print(tl_locals)
 
     return p.exitcode  # type: ignore
 
@@ -103,23 +112,29 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
         # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
         exec(newast_comp, tl_globals)
     except NonImplementedTL:
-        print("Type checking errors found")
-        print(tl_globals['tl'].TypeCheckLogger().warnings)
-        print()
-        print(tl_globals['vau'])
-        print()
+        derror("Error: An error inside tensorlint has occurred, please open an issue in:")
+        derror("  ", metadata.url)
+        derror("Please run the code again with `-vvv` parameter")
+
+        derror("\nType checking errors found:", verb=2)
+        derror(tl_globals['tl'].TypeCheckLogger(), verb=2)
+
+        derror("\nValue of variables at the moment of the failure:", metadata.url, verb=2)
+        derror(tl_globals['vau'], end='\n\n', verb=2)
+
         traceback.print_exc()
-        raise SystemExit(1)
+        raise SystemExit(2)
 
     if len(tl_globals['tl'].TypeCheckLogger().warnings) > 0:
-        print("Type checking errors found")
-        print()
-        print(tl_globals['tl'].TypeCheckLogger().warnings)
-        print()
-        print(tl_globals['vau'])
-        print()
+        derror("\nValue of variables at the moment of the failure:", verb=3)
+        derror(tl_globals['vau'], end='\n\n', verb=3)
+
+        dprint(tl_globals['tl'].TypeCheckLogger())
+        raise SystemExit(1)
     else:
-        print("Everything ok! It type checked!")
+        dprint('No type checking error found.', verb=1)
+        dprint('I wasn\'t able to find any error in the code, though there may be some (sorry)',
+               verb=2)
 
 
 def entry_point() -> None:
