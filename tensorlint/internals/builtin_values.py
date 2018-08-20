@@ -5,14 +5,16 @@ from .rules import binop_rules
 from .tools import Pos
 from .errors import TypeCheckLogger
 
-__all__ = ['Int', 'Iterable', 'Float', 'ValueAsWithStmt', 'for_loop']
+__all__ = ['Int', 'Float', 'Bool', 'Iterable', 'ValueAsWithStmt', 'for_loop']
 
 
 class Iterable(Value):
-    val = None  # type: ty.Any
-
-    def __init__(self, val: ty.Any) -> None:
+    def __init__(self, val: Value) -> None:
+        # check all its internal values are None (Int(None), or Float(None))
         self.val = val
+
+    def next(self) -> Value:
+        return self.val
 
 
 class Str(Value):
@@ -237,14 +239,31 @@ class Float(Value):
     rpow_op      = _Float_op_output_is_any(float.__rpow__)
 
 
-class ValueAsWithStmt(object):
-    value = None  # type: Int
+@binop_rules.extractRulesFromClass
+class Bool(Int):
+    def __init__(self, n: ty.Optional[bool] = None) -> None:
+        assert n is None or isinstance(n, bool), \
+            "Bool can only carry bools numbers (or None). It was given `{}`".format(type(n))
+        self.n = n
 
-    def __init__(self, val: 'Int') -> None:
+    def __repr__(self) -> str:
+        return "Bool("+repr(self.n)+")"
+
+    def unite_inside(self, other: Value) -> Value:
+        assert type(other) is Bool, \
+            "Sorry, but I only unite with other Bool"
+        if self.n == other.n:  # type: ignore
+            return Bool(self.n)  # type: ignore
+        return Bool()
+
+
+# TODO(helq): THIS SHOULDN'T BE USED!!! kill it!
+class ValueAsWithStmt(object):
+    def __init__(self, val: Value) -> None:
         self.value = val
 
     def __enter__(self):
-        # type: (...) -> Int
+        # type: (...) -> Value
         return self.value
 
     def __exit__(self, exc_type, exc_value, traceback  # type: ignore
@@ -252,7 +271,8 @@ class ValueAsWithStmt(object):
         pass
 
 
+# TODO(helq): THIS SHOULDN'T BE USED!!! kill it!
 def for_loop(iterable: Iterable) -> ValueAsWithStmt:
     # extracting type the elements in the iterable value
     # type_elems = iterable.type_.__args__[0].__args__[0] # type: ignore
-    return ValueAsWithStmt(Int(None))
+    return ValueAsWithStmt(iterable.next())

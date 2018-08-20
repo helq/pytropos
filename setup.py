@@ -205,7 +205,7 @@ def _test(pytest_args: List[str] = []) -> int:
         PYTEST_FLAGS +
         [TESTS_DIRECTORY,
          # '--ignore='+','.join(ignore_dirs),
-         '--mypy'
+         # '--mypy'  # disabling default mypy argument for faster execution of tests
          ] +
         pytest_args)
 
@@ -215,7 +215,7 @@ def _test_all() -> int:
 
     :return: exit code
     """
-    return _lint() + _test()
+    return _lint() + _test(['--mypy'])
 
 
 # The following code is to allow tests to be run with `python setup.py test'.

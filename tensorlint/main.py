@@ -76,15 +76,17 @@ def main(argv: List[str]) -> int:
     ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
     newast = to_tensorlint(ast_)
 
-    dprint("Original file:", verb=2)
-    dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
-    dprint(unparse(ast_), verb=2)
-    dprint("Modified file:", verb=2)
-    dprint("AST dump of modified file:", ast3.dump(newast), verb=3)
-    dprint(unparse(newast), verb=2)
+    if debug_print.verbosity > 0:  # little optimization to not run dumps
+        dprint("Original file:", verb=2)
+        dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
+        dprint(unparse(ast_), verb=2)
+        dprint("Modified file:", verb=2)
+        dprint("AST dump of modified file:", ast3.dump(newast), verb=3)
+        dprint(unparse(newast), verb=2)
 
     import ast
     newast_py = ast.fix_missing_locations(to_python_ast(newast))
+    # TODO(helq): add this lines of code for optional debugging
     # import astpretty
     # astpretty.pprint(newast_py)
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
@@ -104,7 +106,6 @@ def main(argv: List[str]) -> int:
 
 def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
     tl_globals = {}  # type: Dict[str, Any]
-    # tl_locals  = {}  # type: Dict[str, Any]
 
     from tensorlint.internals.tools import NonImplementedTL
     try:
@@ -124,6 +125,8 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
 
         traceback.print_exc()
         raise SystemExit(2)
+
+    # TODO(helq): capture any other failureu
 
     if len(tl_globals['tl'].TypeCheckLogger().warnings) > 0:
         derror("\nValue of variables at the moment of the failure:", verb=3)

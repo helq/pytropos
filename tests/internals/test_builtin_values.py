@@ -2,7 +2,7 @@
 
 from tools import almost_any_value
 
-from tensorlint.internals.builtin_values import Int, Float
+from tensorlint.internals.builtin_values import Int, Float, Bool
 from tensorlint.internals.value import Any, Value
 from tensorlint.internals.errors import TypeCheckLogger
 from tensorlint.internals.tools import Pos
@@ -17,13 +17,17 @@ import tensorlint.internals.rules as tlo
 import operator as ops
 import math
 
-from typing import Optional
+from typing import Optional, Union
 import typing as ty
 
 ints_st = st.one_of(st.integers(), st.none())
 floats_st = st.one_of(st.floats(), st.none())
 ints_floats_st = st.one_of(st.integers(min_value=-100, max_value=100),
                            st.floats(min_value=-100, max_value=100), st.none())
+ints_bools_st = st.one_of(
+    st.builds(Bool, st.one_of(st.booleans(), st.none())),
+    st.builds(Int, ints_st)
+)
 
 
 zeroDivisionError = re.compile('ZeroDivisionError')
@@ -61,6 +65,12 @@ class TestIntFloat(object):
         assert new_val.n is not None
         assert check_float_equality(i, new_val.n)
 
+    @given(st.booleans())
+    def test_bool_preserved(self, b: bool) -> None:
+        new_val = Bool(b)
+        assert new_val.n is not None
+        assert new_val.n == b
+
     @given(st.integers(), st.integers())
     def test_op_int(self, i: int, j: int) -> None:
         """
@@ -70,10 +80,25 @@ class TestIntFloat(object):
         """
         for op, vop in get_ops(['add', 'sub', 'mul']):
             val = vop(Int(i), Int(j))
-            if isinstance(val, Int):
-                py_val = op(i, j)
+            py_val = op(i, j)
+            assert py_val == val.n
+            assert type(py_val) is type(val.n)  # noqa: E721
+
+    @given(ints_bools_st, ints_bools_st)
+    def test_op_bools_and_ints(self, i: Union[Bool, Int], j: Union[Bool, Int]) -> None:
+        """
+        This test basically checks that doing something like this:
+        add(Int(3), Int(5)) == Int(8)
+        for operations which image is on the same initial value
+        """
+        for op, vop in get_ops(['add', 'sub', 'mul']):
+            val = vop(i, j)
+            if i.n is not None and j.n is not None:
+                py_val = op(i.n, j.n)
                 assert py_val == val.n
                 assert type(py_val) is type(val.n)  # noqa: E721
+            else:
+                assert val.n is None
 
     @given(st.integers(), st.integers())
     def test_div_int(self, i: int, j: int) -> None:
@@ -229,16 +254,16 @@ class TestIntFloat(object):
             assert isinstance(tlo.pow(val1, val2).n, Any)  # type: ignore
             assert isinstance(tlo.pow(val2, val1).n, Any)  # type: ignore
 
-    @given(st.one_of(st.integers(), st.none()),
+    @given(ints_bools_st,
            st.one_of(st.integers(min_value=-2000, max_value=2000), st.none()))
     def test_shifts_with_some_values(
-            self, i: Optional[int], j: Optional[int]) -> None:
+            self, i: Union[Int, Bool], j: Optional[int]) -> None:
         TypeCheckLogger.clean_sing()
 
-        new_val1 = tlo.lshift(Int(i), Int(j))  # type: ignore
-        new_val2 = tlo.rshift(Int(i), Int(j))  # type: ignore
+        new_val1 = tlo.lshift(i, Int(j))  # type: ignore
+        new_val2 = tlo.rshift(i, Int(j))  # type: ignore
 
-        if i is None or j is None:
+        if i.n is None or j is None:
             assert new_val1.n is None
             assert new_val2.n is None
             assert len(TypeCheckLogger().warnings) == 0
@@ -246,23 +271,24 @@ class TestIntFloat(object):
 
         if new_val1.n is None:
             with raises(ValueError):
-                ops.lshift(i, j)
+                ops.lshift(i.n, j)
             assert len(TypeCheckLogger().warnings) > 0
             assert valueError.match(TypeCheckLogger().warnings[0][1])
         else:
-            assert ops.lshift(i, j) == new_val1.n
+            assert ops.lshift(i.n, j) == new_val1.n
 
         if new_val2.n is None:
             with raises(ValueError):
-                ops.rshift(i, j)
+                ops.rshift(i.n, j)
             assert len(TypeCheckLogger().warnings) > 0
             assert valueError.match(TypeCheckLogger().warnings[-1][1])
         else:
-            assert ops.rshift(i, j) == new_val2.n
+            assert ops.rshift(i.n, j) == new_val2.n
 
 
 almost_anything = \
     st.one_of(
+        st.booleans(),
         st.floats(),
         st.integers(),
         st.none(),

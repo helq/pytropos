@@ -118,7 +118,7 @@ class Rules(object):
     def extractRulesFromClass(self, klass: ty.Type) -> ty.Type:
         for rule_name in BINARY_OP_METHODS:
             rule_name_in_tl = rule_name.strip('_') + '_op'
-            if rule_name_in_tl in klass.__dict__:
+            if rule_name_in_tl in dir(klass):
                 self.addRule(rule_name, klass, getattr(klass, rule_name_in_tl))
         return klass
 
