@@ -1,7 +1,7 @@
 import typing as ty
 
 from .value import Value, Any
-from ..rules import binop_rules
+from ..operations.base import add_ops_to_global
 from ..tools import Pos
 from ..errors import TypeCheckLogger
 
@@ -107,7 +107,7 @@ def _Int_op_output_is_any(
 # TODO(helq): trying to set an attribute should throw an error (ie, the
 # simulation of the basic building blocks (int, float, ...) should be as close
 # as possible to the official libraries)
-@binop_rules.extractRulesFromClass
+@add_ops_to_global
 class Int(Value):
     def __init__(self, n: ty.Optional[int] = None) -> None:
         assert n is None or isinstance(n, int), \
@@ -143,6 +143,14 @@ class Int(Value):
     rlshift_op   = _Int_op_output_is_int(int.__rlshift__)
     rshift_op    = _Int_op_output_is_int(int.__rshift__)
     rrshift_op   = _Int_op_output_is_int(int.__rrshift__)
+
+    def bool_op(
+            self,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Bool', 'NotImplemented']:
+        if self.n is None:
+            return Bool()
+        return Bool(bool(self.n))
 
 
 def _Float_op_output_is_float(
@@ -206,7 +214,7 @@ def _Float_op_output_is_any(
 
 
 # TODO(helq): add warning when operating with nan values
-@binop_rules.extractRulesFromClass
+@add_ops_to_global
 class Float(Value):
     def __init__(self, n: ty.Optional[float] = None) -> None:
         assert n is None or isinstance(n, float), \
@@ -238,8 +246,16 @@ class Float(Value):
     pow_op       = _Float_op_output_is_any(float.__pow__)
     rpow_op      = _Float_op_output_is_any(float.__rpow__)
 
+    def bool_op(
+            self,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Bool', 'NotImplemented']:
+        if self.n is None:
+            return Bool()
+        return Bool(bool(self.n))
 
-@binop_rules.extractRulesFromClass
+
+@add_ops_to_global
 class Bool(Int):
     def __init__(self, n: ty.Optional[bool] = None) -> None:
         assert n is None or isinstance(n, bool), \
@@ -255,6 +271,12 @@ class Bool(Int):
         if self.n == other.n:  # type: ignore
             return Bool(self.n)  # type: ignore
         return Bool()
+
+    def bool_op(
+            self,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Bool', 'NotImplemented']:
+        return self
 
 
 # TODO(helq): THIS SHOULDN'T BE USED!!! kill it!

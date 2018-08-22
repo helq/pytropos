@@ -1,7 +1,7 @@
 import typing as ty
 from tensorlint.internals.values.value import Value
 from tensorlint.internals import Any, Int
-from tensorlint.internals.rules import binop_rules
+from tensorlint.internals.operations.base import add_ops_to_global
 from tensorlint.internals.errors import TypeCheckLogger
 from tensorlint.internals.tools import NonImplementedTL, Pos
 
@@ -13,7 +13,7 @@ T = ty.TypeVar('T')
 # TODO(helq): copy notation (names used) from the library
 
 
-@binop_rules.extractRulesFromClass
+@add_ops_to_global
 class ndarray(Value):
     type_ = None  # type: ty.Any
     shape = None  # type: ty.Tuple[Int, ...]

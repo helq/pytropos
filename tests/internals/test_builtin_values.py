@@ -13,7 +13,8 @@ from pytest import raises
 from hypothesis import given
 import hypothesis.strategies as st
 
-import tensorlint.internals.rules as tlo
+import tensorlint.internals.operations.base as tlo
+import tensorlint.internals.operations.unitary as unitary
 import operator as ops
 import math
 
@@ -284,6 +285,13 @@ class TestIntFloat(object):
             assert valueError.match(TypeCheckLogger().warnings[-1][1])
         else:
             assert ops.rshift(i.n, j) == new_val2.n
+
+    @given(almost_any_value)
+    def test_bools(self, i: Value) -> None:
+        if isinstance(i, Any):
+            assert isinstance(unitary.bool(i), Any)
+        else:
+            assert isinstance(unitary.bool(i), Bool)
 
 
 almost_anything = \

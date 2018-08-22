@@ -107,13 +107,13 @@ def main(argv: List[str]) -> int:
 def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
     tl_globals = {}  # type: Dict[str, Any]
 
-    from tensorlint.internals.tools import NonImplementedTL
+    # from tensorlint.internals.tools import NonImplementedTL
     from tensorlint.internals.errors import TypeCheckLogger
     try:
         # at the module level, locals and globals are the same
         # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
         exec(newast_comp, tl_globals)
-    except NonImplementedTL:
+    except Exception:
         derror("Error: An error inside tensorlint has occurred, please open an issue in:")
         derror("  ", metadata.url)
         derror("Please run the code again with `-vvv` parameter")
@@ -126,7 +126,6 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
 
         traceback.print_exc()
         raise SystemExit(2)
-    # TODO(helq): capture any other failures (exceptions)
 
     derror("\nLast computed variables values (vault):", verb=3)
     derror(tl_globals['vau'], end='\n\n', verb=3)

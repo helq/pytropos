@@ -239,23 +239,6 @@ class Vault(object):
 
         return branch_vault  # type: ignore
 
-    def runIfBranching(self,
-                       if_res: ty.Any,  # this should be `Value`
-                       if_branch: Callable[[], None],
-                       else_branch: Optional[Callable[[], None]] = None
-                       ) -> None:
-        if_vault = self._run_branch(if_branch, 'if')
-
-        if else_branch is None:
-            if if_res:
-                self._replaceWithBranch(if_vault)
-        else:
-            else_vault = self._run_branch(else_branch, 'else')
-            if if_res:
-                self._replaceWithBranch(if_vault)
-            else:
-                self._replaceWithBranch(else_vault)
-
     def add_global(self, *keys: str) -> None:
         self.__globals.update(keys)
         for k in keys:
@@ -287,6 +270,33 @@ class Vault(object):
                 "Variable `{}` has already been declared as globals".format(k)
             assert k not in self.__nonlocals, \
                 "Variable `{}` has already been declared as nonlocal".format(k)
+
+    def runIfBranching(self,
+                       if_res: Value,
+                       if_branch: Callable[[], None],
+                       else_branch: Optional[Callable[[], None]] = None
+                       ) -> None:
+        assert isinstance(if_res, Value), \
+            "the result of the execution of an if statement must always be a Value"
+
+        # TODO(helq) : FINISH ME!!!
+        # rules.bool(if_res) => Bool(some)
+        # where some is True, False or None
+        # In the first two cases is possible to know what path to take,
+        # for the third, it is impossible and both branches must be merged
+        # for this use `unite`!
+
+        if_vault = self._run_branch(if_branch, 'if')
+
+        if else_branch is None:
+            if if_res:  # type: ignore
+                self._replaceWithBranch(if_vault)
+        else:
+            else_vault = self._run_branch(else_branch, 'else')
+            if if_res:  # type: ignore
+                self._replaceWithBranch(if_vault)
+            else:
+                self._replaceWithBranch(else_vault)
 
     def _replaceWithBranch(self,
                            branch: Tuple[VaultList, ClosureDict]
