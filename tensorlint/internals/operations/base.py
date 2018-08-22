@@ -1,5 +1,6 @@
 import typing as ty
 from typing import Union, Tuple, Optional, TYPE_CHECKING
+from typing import List  # noqa: F401
 
 from ..values.value import Value, Any
 from ..tools import Pos
@@ -25,7 +26,8 @@ binary_operators = [
     ('pow',      ('__pow__',      '__rpow__'     )),  # noqa: E202
     ('lshift',   ('__lshift__',   '__rlshift__'  )),  # noqa: E202
     ('rshift',   ('__rshift__',   '__rrshift__'  )),  # noqa: E202
-]
+    ('eq',       ('__eq__',)),  # noqa: E202
+]  # type: List[Tuple[str, Union[Tuple[str], Tuple[str, str]]]]
 
 unary_operators = [
     ('bool', ('__bool__',)),

@@ -152,6 +152,17 @@ class Int(Value):
             return Bool()
         return Bool(bool(self.n))
 
+    def eq_op(
+            self,
+            other: Value,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Bool', 'NotImplemented']:
+        if isinstance(other, Int):
+            if self.n is None or other.n is None:
+                return Bool()
+            return Bool(self.n == other.n)
+        return NotImplemented
+
 
 def _Float_op_output_is_float(
         op: ty.Callable[[float, ty.Union[float, int]], float]
@@ -253,6 +264,17 @@ class Float(Value):
         if self.n is None:
             return Bool()
         return Bool(bool(self.n))
+
+    def eq_op(
+            self,
+            other: Value,
+            src_pos: ty.Optional[Pos] = None
+    ) -> ty.Union['Bool', 'NotImplemented']:
+        if isinstance(other, (Int, Float)):
+            if self.n is None or other.n is None:
+                return Bool()
+            return Bool(self.n == other.n)
+        return NotImplemented
 
 
 @add_ops_to_global

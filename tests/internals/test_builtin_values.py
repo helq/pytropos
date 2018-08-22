@@ -287,11 +287,31 @@ class TestIntFloat(object):
             assert ops.rshift(i.n, j) == new_val2.n
 
     @given(almost_any_value)
-    def test_bools(self, i: Value) -> None:
-        if isinstance(i, Any):
-            assert isinstance(unitary.bool(i), Any)
+    def test_bools_return_either_Any_or_Bool(self, val: Value) -> None:
+        if isinstance(val, Any):
+            assert isinstance(unitary.bool(val), Any)
         else:
-            assert isinstance(unitary.bool(i), Bool)
+            assert isinstance(unitary.bool(val), Bool)
+
+    @given(st.builds(Int, ints_st), st.builds(Int, ints_st))
+    def check_Bool_out_of_eq_operation_ints(
+            self, i: Int, j: Int
+    ) -> None:
+        res = tlo.eq(i, j)  # type: ignore
+        assert isinstance(res, Bool)
+        if i.n is None or j.n is None:
+            assert res.n is None
+
+    @given(st.one_of(st.integers(), st.floats()), st.one_of(st.integers(), st.floats()))
+    def check_Bool_out_of_eq_operation_floats_and_ints(
+            self, i: Union[int, float], j: Union[int, float]
+    ) -> None:
+        val1 = Int(i) if isinstance(i, int) else Float(i)
+        val2 = Int(j) if isinstance(j, int) else Float(j)
+
+        res = tlo.eq(val1, val2)  # type: ignore
+        assert not isinstance(res, Any)
+        assert res.n == (i == j)
 
 
 almost_anything = \
