@@ -1,6 +1,4 @@
-from .base import (
-    AstAttributeUnknown, to_python_ast
-)
-from .translator import to_tensorlint
+from .tools import AstAttributeUnknown, to_python_ast
+from .transformer import TensorlintTransformer
 
-__all__ = ["AstAttributeUnknown", "to_tensorlint", "to_python_ast"]
+__all__ = ["AstAttributeUnknown", "to_python_ast", "TensorlintTransformer"]

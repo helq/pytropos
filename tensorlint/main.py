@@ -70,16 +70,20 @@ def main(argv: List[str]) -> int:
 
     from typed_ast import ast3
     from typed_astunparse import unparse
-    from tensorlint.translate import to_tensorlint, to_python_ast
+    from tensorlint.translate import to_python_ast, TensorlintTransformer
+
     file = args_parsed.file
     ast_: ast3.Module
     ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
-    newast = to_tensorlint(ast_, file.name)
 
     if debug_print.verbosity > 0:  # little optimization to not run dumps
         dprint("Original file:", verb=2)
         dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
         dprint(unparse(ast_), verb=2)
+
+    newast = TensorlintTransformer(file.name).visit(ast_)
+
+    if debug_print.verbosity > 0:
         dprint("Modified file:", verb=2)
         dprint("AST dump of modified file:", ast3.dump(newast), verb=3)
         dprint(unparse(newast), verb=2)

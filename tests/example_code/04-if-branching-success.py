@@ -1,9 +1,9 @@
 import numpy as np
 
-a = np.zeros( (10,5) )
+a = np.zeros( (10,6) )
 
 m = 4 + 1
-n = 0 + 0.0
+n = 0 + 2
 
 if m == 5:
     n = 1
