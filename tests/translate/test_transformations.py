@@ -6,13 +6,15 @@ from hypothesis import given
 from typed_ast import ast3
 # import typing as ty
 
-import tensorlint.translate.translator as trans
+from tensorlint.translate.translator import TransformationsClass
 
 import tensorlint.hypothesis_strategies.typed_ast as st_ast
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from tensorlint.translate.base import AddParams  # noqa: F401
+
+trans = TransformationsClass("<file>")
 
 
 class TestTransformations(object):

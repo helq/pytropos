@@ -1,9 +1,9 @@
-import typing as ty
-from typing import Dict, List, Tuple, Type  # noqa: F401
+from typing import Dict, Type, Any  # noqa: F401
+from typing import Tuple, Optional
 
 __all__ = ['NonImplementedTL', 'Singleton', 'Pos']
 
-Pos = ty.Tuple[int, int]
+Pos = Tuple[Optional[Tuple[int, int]], str]
 
 
 class NonImplementedTL(Exception):
@@ -12,7 +12,7 @@ class NonImplementedTL(Exception):
 
 # taken from: https://stackoverflow.com/a/6798042
 class Singleton(type):
-    _instances = {}  # type: Dict[Type, ty.Any]
+    _instances = {}  # type: Dict[Type, Any]
 
     def __call__(cls, *args, **kwargs):  # type: ignore
         if cls not in cls._instances:

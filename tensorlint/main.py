@@ -74,7 +74,7 @@ def main(argv: List[str]) -> int:
     file = args_parsed.file
     ast_: ast3.Module
     ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
-    newast = to_tensorlint(ast_)
+    newast = to_tensorlint(ast_, file.name)
 
     if debug_print.verbosity > 0:  # little optimization to not run dumps
         dprint("Original file:", verb=2)
@@ -100,6 +100,8 @@ def main(argv: List[str]) -> int:
 
     p.start()
     p.join()
+
+    dprint("Closing tensorlint", verb=1)
 
     return p.exitcode  # type: ignore
 

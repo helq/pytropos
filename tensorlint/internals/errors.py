@@ -38,15 +38,25 @@ class TypeCheckLogger(object, metaclass=Singleton):
 
 def _warning_to_str(warn: Tuple[WarningType, str, Optional[Pos]]) -> str:
     # TODO(helq): add file to the stuff to the stuff position
-    if warn[2] is None:
-        return "<file>::: {warntype} {msg}".format(
-            warntype=warn[0],
-            msg=warn[1]
+    warntype, msg, pos = warn
+    if pos is None:
+        return "<file-unknown>::: {warntype} {msg}".format(
+            warntype=warntype,
+            msg=msg
+        )
+    pos_in_file, file = pos
+    if pos_in_file is None:
+        return "{file}::: {warntype} {msg}".format(
+            file=file,
+            warntype=warntype,
+            msg=msg
         )
     else:
-        return "<file>:{lineno}:{col}: {warntype} {msg}".format(
-            lineno=warn[2][0],
-            col=warn[2][1],
-            warntype=warn[0],
-            msg=warn[1]
+        lineno, col = pos_in_file
+        return "{file}:{lineno}:{col}: {warntype} {msg}".format(
+            file=file,
+            lineno=lineno,
+            col=col,
+            warntype=warntype,
+            msg=msg
         )

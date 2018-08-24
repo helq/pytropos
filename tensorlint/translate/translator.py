@@ -1,43 +1,33 @@
 from typed_ast import ast3
 
 from .base import walk_ast, combine_transformations
-from .transformations import (
-    # checking_add_params,
-    augassign_transformation_before,
-    num_transformation,
-    import_transformation,
-    for_transformation,
-    binop_transformation,
-    call_transformation,
-    del_annassign_transformation,
-    del_type_comment_transformation,
-    put_vault_id_params,
-    name_to_vault_transformation
-)
+from .transformations import TransformationsClass
 
 __all__ = ["to_tensorlint"]
 
 
-def to_tensorlint(tree: ast3.Module) -> ast3.Module:
+def to_tensorlint(tree: ast3.Module, filename: str) -> ast3.Module:
+    trans = TransformationsClass(filename)
     list_ast = walk_ast(
         tree,
         f_before=combine_transformations([[
-            augassign_transformation_before,
+            trans.augassign_transformation_before,
         ], [
-            put_vault_id_params,
+            trans.put_vault_id_params,
         ]], 'f_before'),
         f_after=combine_transformations([[
-            # checking_add_params,
-            num_transformation,
-            import_transformation,
-            for_transformation,
-            binop_transformation,
-            call_transformation,
+            # trans.checking_add_params,
+            trans.num_transformation,
+            trans.import_transformation,
+            trans.for_transformation,
+            trans.binop_transformation,
+            trans.call_transformation,
+            trans.module_transformation,
         ], [
-            name_to_vault_transformation,
+            trans.name_to_vault_transformation,
         ], [
-            del_annassign_transformation,
-            del_type_comment_transformation,
+            trans.del_annassign_transformation,
+            trans.del_type_comment_transformation,
         ]], 'f_after'),
         # ]], 'f_after', verbose=True),
         verbose=False)
@@ -50,14 +40,4 @@ def to_tensorlint(tree: ast3.Module) -> ast3.Module:
     new_ast = list_ast[0]  # type: ignore
 
     # adding imports to the start of the file
-    new_ast.body = (
-        ast3.parse(  # type: ignore
-            'import tensorlint as tl\n'
-            # 'tl.Any.error_when_used = True\n'
-            'import tensorlint.libs.base\n'
-            'vau = tl.Vault()\n'
-            'vau.load_module(tensorlint.libs.base)\n'
-        ).body +
-        new_ast.body
-    )
     return new_ast
