@@ -1,5 +1,7 @@
 import typing as ty
 
+import math
+
 from .value import Value, Any
 from ..operations.base import add_ops_to_global
 from ..tools import Pos
@@ -25,6 +27,22 @@ class Str(Value):
         assert type(other) is Str, \
             "Sorry, but I only unite with other Strs"
         return Str()
+
+    def congruent_inside(self, other: 'Value') -> bool:
+        assert type(other) is Str, \
+            "Sorry, but I only unite with other Strs"
+        return True
+
+    @property
+    def python_name(self) -> str:
+        return "str"
+
+    @property
+    def python_repr(self) -> str:
+        if self.s is None:
+            return "str?"
+        else:
+            return repr(self.s)
 
 
 def _Int_op_output_is_int(
@@ -121,6 +139,13 @@ class Int(Value):
             return Int(self.n)
         return Int()
 
+    def congruent_inside(self, other: 'Value') -> bool:
+        assert isinstance(other, Int) and type(other) is Int, \
+            "Sorry, but I only unite with other Ints"
+        return self.n is None \
+            or other.n is None \
+            or self.n == other.n
+
     def __repr__(self) -> str:
         return "Int("+repr(self.n)+")"
 
@@ -162,6 +187,17 @@ class Int(Value):
                 return Bool()
             return Bool(self.n == other.n)
         return NotImplemented
+
+    @property
+    def python_name(self) -> str:
+        return "int"
+
+    @property
+    def python_repr(self) -> str:
+        if self.n is None:
+            return "int?"
+        else:
+            return repr(self.n)
 
 
 def _Float_op_output_is_float(
@@ -239,6 +275,15 @@ class Float(Value):
             return Float(self.n)
         return Float()
 
+    def congruent_inside(self, other: 'Value') -> bool:
+        assert isinstance(other, Float) and type(other) is Float, \
+            "Sorry, but I only unite with other Floats"
+        return self.n is None \
+            or other.n is None \
+            or (math.isnan(self.n) and math.isnan(other.n)) \
+            or (math.isinf(self.n) and math.isinf(other.n)) \
+            or self.n == other.n
+
     def __repr__(self) -> str:
         return "Float("+repr(self.n)+")"
 
@@ -276,6 +321,17 @@ class Float(Value):
             return Bool(self.n == other.n)
         return NotImplemented
 
+    @property
+    def python_name(self) -> str:
+        return "float"
+
+    @property
+    def python_repr(self) -> str:
+        if self.n is None:
+            return "float?"
+        else:
+            return repr(self.n)
+
 
 @add_ops_to_global
 class Bool(Int):
@@ -294,11 +350,29 @@ class Bool(Int):
             return Bool(self.n)  # type: ignore
         return Bool()
 
+    def congruent_inside(self, other: 'Value') -> bool:
+        assert isinstance(other, Bool) and type(other) is Bool, \
+            "Sorry, but I only unite with other Bools"
+        return self.n is None \
+            or other.n is None \
+            or self.n == other.n
+
     def bool_op(
             self,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Bool', 'NotImplemented']:
         return self
+
+    @property
+    def python_name(self) -> str:
+        return "bool"
+
+    @property
+    def python_repr(self) -> str:
+        if self.n is None:
+            return "bool?"
+        else:
+            return repr(self.n)
 
 
 # TODO(helq): THIS SHOULDN'T BE USED!!! kill it!

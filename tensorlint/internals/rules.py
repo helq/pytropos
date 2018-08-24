@@ -18,7 +18,7 @@ def congruent(x: Value, y: Value) -> bool:
     if isinstance(x, Any) or isinstance(y, Any):
         return True
 
-    return type(x) is type(y)
+    return type(x) is type(y) and x.congruent_inside(y)
 
 
 def unite(x: Value, y: Value) -> Value:

@@ -127,8 +127,8 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
         traceback.print_exc()
         raise SystemExit(2)
 
-    derror("\nLast computed variables values (vault):", verb=3)
-    derror(tl_globals['vau'], end='\n\n', verb=3)
+    derror("\nLast computed variables values (vault):", verb=2)
+    derror(tl_globals['vau'], end='\n\n', verb=2)
 
     if len(TypeCheckLogger().warnings) > 0:
         derror(TypeCheckLogger())

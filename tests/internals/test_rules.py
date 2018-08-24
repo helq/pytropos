@@ -21,7 +21,7 @@ class TestCongruent(object):
 
     @given(almost_any_value)
     def test_anything_is_congruent_with_itself(self, val: Value) -> None:
-        """x ~ x  is always true"""
+        """W(n) ~ W(n)  is always true"""
         assert congruent(val, val)
 
 

@@ -14,11 +14,26 @@ class Value(object):
     def unite_inside(self, other: 'Value') -> 'Value':
         raise NotImplementedError
 
+    def congruent_inside(self, other: 'Value') -> bool:
+        raise NotImplementedError
+
+    @property
+    def python_name(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def python_repr(self) -> str:
+        raise NotImplementedError
+
 
 # TODO(helq): Implement all methods special method names
 # https://docs.python.org/3/reference/datamodel.html#special-method-names
 class Any(Value):
     error_when_used = False
+
+    @property
+    def python_repr(self) -> str:
+        return "any?"
 
     def checkErrorIfUsed(self) -> None:
         if Any.error_when_used:
