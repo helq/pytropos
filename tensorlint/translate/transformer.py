@@ -1,4 +1,5 @@
 from typing import Optional, List, Tuple, Union
+from typing import Dict, Type  # noqa: F401
 from typed_ast import ast3
 
 from .tools import AstAttributeUnknown
@@ -31,6 +32,19 @@ operations = {
     ast3.BitXor: 'xor',
     ast3.BitOr: 'or'
 }
+
+compopt = {
+    ast3.Eq: 'eq',
+    # ast3.NotEq,
+    # ast3.Lt,
+    # ast3.LtE,
+    # ast3.Gt,
+    # ast3.GtE,
+    # ast3.Is,
+    # ast3.IsNot,
+    # ast3.In,
+    # ast3.NotIn
+}  # type: Dict[Type[ast3.cmpop], str]
 
 
 class TensorlintTransformer(ast3.NodeTransformer):
@@ -152,6 +166,48 @@ class TensorlintTransformer(ast3.NodeTransformer):
             type_comment=None)
         return new_node
 
+    def visit_Compare(self, node: ast3.Compare) -> VisitorOutput:
+        # Converting a binary operation `5 + a` into a function call
+        # with an additional parameter `src_pos`:
+        # tl.add(5, a, src_pos=(20, 5))
+        assert len(node.ops) == 1, "More than one comparison has been implemented"
+        self.generic_visit(node)
+
+        op_type = type(node.ops[0])
+        if op_type not in compopt:
+            raise AstAttributeUnknown(
+                "There is no rule to handle this kind of operation T_T "
+                "(inside transformations): `{}`".format(type(op_type)))
+
+        op_str = compopt[op_type]
+
+        new_v = ast3.Call(
+            func=ast3.Attribute(
+                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                attr=op_str,
+                ctx=ast3.Load()),
+            args=[
+                node.left,
+                node.comparators[0]
+            ],
+            keywords=[
+                ast3.keyword(
+                    arg='src_pos',
+                    value=ast3.Tuple(
+                        elts=[
+                            ast3.Tuple(
+                                elts=[ast3.Num(node.lineno), ast3.Num(node.col_offset)],
+                                ctx=ast3.Load()
+                            ),
+                            ast3.Name(id='fn', ctx=ast3.Load())
+                        ],
+                        ctx=ast3.Load()
+                    ),
+                    ctx=ast3.Load()
+                )
+            ])
+        return new_v
+
     def visit_BinOp(self, node: ast3.BinOp) -> VisitorOutput:
         # Converting a binary operation `5 + a` into a function call
         # with an additional parameter `src_pos`:
@@ -266,3 +322,69 @@ class TensorlintTransformer(ast3.NodeTransformer):
             node.body
         )
         return node
+
+    def visit_If(self, node: ast3.If) -> VisitorOutput:
+        new_test = self.visit(node.test)
+        new_body = [self.visit(stmt) for stmt in node.body]
+        new_orelse = [self.visit(stmt) for stmt in node.orelse]
+        orelse = bool(node.orelse)
+
+        new_node = [
+            ast3.Assign(
+                targets=[ast3.Name(id='if_res', ctx=ast3.Store())],
+                value=new_test
+            ),
+            ast3.FunctionDef(
+                name='if_branch',
+                args=ast3.arguments(
+                    args=[], vararg=None, kwonlyargs=[],
+                    kw_defaults=[], kwarg=None, defaults=[]),
+                body=new_body,
+                decorator_list=[],
+                returns=None,
+            ),
+        ]
+        if orelse:
+            new_node.append(
+                ast3.FunctionDef(
+                    name='else_branch',
+                    args=ast3.arguments(
+                        args=[], vararg=None, kwonlyargs=[],
+                        kw_defaults=[], kwarg=None, defaults=[]),
+                    body=new_orelse,
+                    decorator_list=[],
+                    returns=None,
+                )
+            )
+        new_node.append(
+            ast3.Expr(
+                value=ast3.Call(
+                    func=ast3.Attribute(
+                        value=ast3.Name(id='vau', ctx=ast3.Load()),
+                        attr='runIfBranching',
+                        ctx=ast3.Load(),
+                    ),
+                    args=[
+                        ast3.Name(id='if_res', ctx=ast3.Load()),
+                        ast3.Name(id='if_branch', ctx=ast3.Load()),
+                        ast3.Name(id='else_branch', ctx=ast3.Load())
+                    ] if orelse else [
+                        ast3.Name(id='if_res', ctx=ast3.Load()),
+                        ast3.Name(id='if_branch', ctx=ast3.Load())
+                    ],
+                    keywords=[],
+                )
+            )
+        )
+        return new_node  # type: ignore
+
+    def visit_NameConstant(self, node: ast3.NameConstant) -> VisitorOutput:
+        return ast3.Call(
+            func=ast3.Attribute(
+                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                attr='Bool',
+                ctx=ast3.Load(),
+            ),
+            args=[ast3.NameConstant(value=node.value)],
+            keywords=[],
+        )

@@ -4,18 +4,25 @@ import typing as ty
 from types import ModuleType
 
 from ..values.value import Value, Any
+from ..values.builtin_values import Bool
 from ..errors import TypeCheckLogger
 
 from .branch_node import BranchNode
 from .scope import FrozenScope, Scope
 
+import tensorlint.internals.operations.unitary as unitary
+
 __all__ = ['Vault', 'Function']
+
+
+class VaultException(Exception):
+    pass
 
 
 class Function(Value):
     def __init__(self, fun: Callable) -> None:
-        self.__fun = fun
-        self.__closure = None  # type: Optional[Vault]
+        self._fun = fun
+        self._closure = None  # type: Optional[Vault]
         # This is the only introspection hack that may differ between implementations of python.
         # If this doesn't work in some python implementation, this should be rewritten in "pure"
         # python, it could be very simple if a function definition gets converted into this:
@@ -27,17 +34,17 @@ class Function(Value):
         #   return vau1, myfun
         #
         # the code below will only need to save each paramater from the tuple into the variables
-        # __closure and __fun
+        # _closure and _fun
         if fun.__closure__ is not None and len(fun.__closure__) > 0:  # type: ignore
             assert len(fun.__closure__) == 1, (  # type: ignore
                 "A function should only have a single nonlocal variable")
             clo = fun.__closure__[0].cell_contents  # type: ignore
             assert isinstance(clo, Vault), "All nonlocal variables in functions should be Vault"
-            self.__closure = clo
+            self._closure = clo
 
     @property
     def fun_closure(self) -> 'Optional[Vault]':
-        return self.__closure
+        return self._closure
 
     def __call__(self, *args: ty.Any, **kargs: ty.Any) -> ty.Any:
         # TODO(helq): several todos:
@@ -47,7 +54,7 @@ class Function(Value):
         # - What happens when the function is called with Any() arguments, does it fail?
         # - What happens if the function is called with a specific set of arguments
         # Is the function calling itself recursevely, if yes, return Any() (probably)
-        return self.__fun(*args, **kargs)
+        return self._fun(*args, **kargs)
 
 
 # Closure = List[Tuple[Tuple[str, ...], Scope]]
@@ -91,8 +98,8 @@ class Vault(object):
             self.__vault = vault[:]
             self.__global = len(vault) == 1
         else:
-            raise Exception("vault must be None, a Vault object,"
-                            " or a list of LayerableDicts")
+            raise VaultException("vault must be None, a Vault object,"
+                                 " or a list of LayerableDicts")
         # self.closures = self.__create_closures()  # type: List[Scope]
         # if Vault.__global_vault is None:
         #     Vault.__global_vault = self
@@ -279,24 +286,37 @@ class Vault(object):
         assert isinstance(if_res, Value), \
             "the result of the execution of an if statement must always be a Value"
 
-        # TODO(helq) : FINISH ME!!!
-        # rules.bool(if_res) => Bool(some)
-        # where some is True, False or None
-        # In the first two cases is possible to know what path to take,
-        # for the third, it is impossible and both branches must be merged
-        # for this use `unite`!
+        if_bool = unitary.bool(if_res)
+
+        if isinstance(if_bool, Bool):
+            if if_bool.n is None:
+                merge = True
+            else:
+                merge = False
+        else:
+            merge = True
 
         if_vault = self._run_branch(if_branch, 'if')
-
         if else_branch is None:
-            if if_res:  # type: ignore
+            if merge:
+                self._mergeBranches(if_vault)
+            elif if_bool.n:  # type: ignore
                 self._replaceWithBranch(if_vault)
         else:
             else_vault = self._run_branch(else_branch, 'else')
-            if if_res:  # type: ignore
+            if merge:
+                self._mergeBranches(if_vault, else_vault)
+            elif if_bool.n:  # type: ignore
                 self._replaceWithBranch(if_vault)
             else:
                 self._replaceWithBranch(else_vault)
+
+    def _mergeBranches(
+            self,
+            branch_l: Tuple[VaultList, ClosureDict],
+            branch_r: Optional[Tuple[VaultList, ClosureDict]] = None
+    ) -> None:
+        raise NotImplementedError
 
     def _replaceWithBranch(self,
                            branch: Tuple[VaultList, ClosureDict]
@@ -308,10 +328,10 @@ class Vault(object):
             # branch.val can throw an exception if nothing has been set inside
             # of it, this often happens if you try to examine its value before
             # exiting the branch
-            somethingchanged = self.__replaceWithBranch(branch)
+            somethingchanged = self._replaceWithBranch_helper(branch)
 
     # returns true if something was modified
-    def __replaceWithBranch(self, branch: Tuple[VaultList, ClosureDict]) -> bool:
+    def _replaceWithBranch_helper(self, branch: Tuple[VaultList, ClosureDict]) -> bool:
         modified = False
 
         vault, branch_closures = branch
