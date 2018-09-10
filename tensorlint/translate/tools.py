@@ -1,7 +1,6 @@
 from typing import Any
 import ast
 from typed_ast import ast3
-import astpretty
 
 from typing import Union
 
@@ -53,4 +52,5 @@ def pprint_ast_expr(
     if fix_missing_locations:
         exp = ast.fix_missing_locations(exp)
 
+    import astpretty
     astpretty.pprint(exp)

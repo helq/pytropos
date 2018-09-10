@@ -261,8 +261,8 @@ setup_dict = dict(
     ],
     packages=find_packages(exclude=(TESTS_DIRECTORY,)),
     install_requires=([
-        '',
-        # your module dependencies
+        'six',
+        'typed_ast',
     ]),
 
     # Allow tests to be run with `python setup.py test'.

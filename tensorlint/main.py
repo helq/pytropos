@@ -31,7 +31,7 @@ def main(argv: List[str]) -> int:
         '{project} {version}\n' +
         '\n' +
         '{authors}\n' +
-        'URL: <{url}>)\n'
+        'URL: <{url}>\n'
     ).format(
         project=metadata.project,
         version=metadata.version,
@@ -69,21 +69,31 @@ def main(argv: List[str]) -> int:
     dprint("Parsing and un-parsing a python file (it should preserve all type comments)", verb=2)
 
     from typed_ast import ast3
-    from typed_astunparse import unparse
+    if debug_print.verbosity > 1:
+        try:
+            from typed_astunparse import unparse
+        except ModuleNotFoundError:
+            print("Sorry! You need to install `typed_astunparse` for bigger any verbosity level.\n"
+                  "Note: If you are using python 3.7 we recommend you to install "
+                  "      `typed_astunparse` with `pip install -r git_requirements.txt` "
+                  "      (you can find `git_requirements.txt` in {})\n".format(metadata.url),
+                  file=sys.stderr)
+            exit(1)
+
     from tensorlint.translate import to_python_ast, TensorlintTransformer
 
     file = args_parsed.file
     ast_: ast3.Module
     ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
 
-    if debug_print.verbosity > 0:  # little optimization to not run dumps
+    if debug_print.verbosity > 1:  # little optimization to not run dumps
         dprint("Original file:", verb=2)
         dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
         dprint(unparse(ast_), verb=2)
 
     newast = TensorlintTransformer(file.name).visit(ast_)
 
-    if debug_print.verbosity > 0:
+    if debug_print.verbosity > 1:
         dprint("Modified file:", verb=2)
         dprint("AST dump of modified file:", ast3.dump(newast), verb=3)
         dprint(unparse(newast), verb=2)

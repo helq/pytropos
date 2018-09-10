@@ -30,7 +30,8 @@ def unite(x: Value, y: Value) -> Value:
     unite(x, y) = ?
     unite(W(a), W(b)) = W(unite(a,b))
 
-    NOTE: This function doesn't assume subtyping!!!
+    NOTE: This function ignores subtyping!!!, if A <: B then unite(A, B) will return ? (if
+    it took care of subtyping it should return B)
     """
     if isinstance(x, Any) or isinstance(y, Any):
         return Any()
