@@ -151,8 +151,6 @@ class Scope(object):
         self.__layers.pop()
 
     def layerDepth(self) -> int:
-        if self.__branch != BranchNode.current_branch:
-            self.__moveToNewBranch()
         return len(self.__layers)
 
     def __moveToNewBranch(self) -> None:

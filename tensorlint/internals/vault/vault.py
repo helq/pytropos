@@ -1,5 +1,5 @@
-from typing import Dict, List, Optional, Set, Tuple, Callable
-from typing import Union  # noqa: F401
+from typing import Dict, List, Optional, Set, Callable
+from typing import Tuple, Union  # noqa: F401
 import typing as ty
 from types import ModuleType
 
@@ -9,6 +9,7 @@ from ..errors import TypeCheckLogger
 
 from .branch_node import BranchNode
 from .scope import FrozenScope, Scope
+from .cell import Cell
 
 import tensorlint.internals.operations.unitary as unitary
 
@@ -20,33 +21,36 @@ class VaultException(Exception):
 
 
 class Function(Value):
-    def __init__(self, fun: Callable) -> None:
-        self._fun = fun
-        self._closure = None  # type: Optional[Vault]
-        # This is the only introspection hack that may differ between implementations of python.
-        # If this doesn't work in some python implementation, this should be rewritten in "pure"
-        # python, it could be very simple if a function definition gets converted into this:
+    # TODO(helq): extend cocoon function to return more stuff, like freevars and other
+    # potentially useful data from the function
+    def __init__(self,
+                 fun:       Callable,
+                 cell_vars: Optional[Dict[str, Cell]],
+                 args:      Tuple[str, ...]
+                 ) -> None:
+        # Assuming that we get our function wrapped by another function which gives us the
+        # nonlocals of that function:
+        # def myfun():
+        #   def function(*args, **kargs):
+        #     vau1 = tl.Vault(vau)
+        #     vau1.add_locals('i', 'x')
+        #     vau1.load_args(args, kargs)
+        #     return tl.add(vau1['i'], vau1['x'])
+        #   return function, None, ('i', 'x')
         #
-        # def test():
-        #   vau1 = tl.Vault(vau)
-        #   def myfun(*args):
-        #       ...
-        #   return vau1, myfun
+        # From:
+        # def myfun(i, x):
+        #   return i + x
         #
-        # the code below will only need to save each paramater from the tuple into the variables
-        # _closure and _fun
-        if fun.__closure__ is not None and len(fun.__closure__) > 0:  # type: ignore
-            assert len(fun.__closure__) == 1, (  # type: ignore
-                "A function should only have a single nonlocal variable")
-            clo = fun.__closure__[0].cell_contents  # type: ignore
-            assert isinstance(clo, Vault), "All nonlocal variables in functions should be Vault"
-            self._closure = clo
+        self._fun       = fun
+        self._cell_vars = cell_vars
+        self._args      = args
 
     @property
-    def fun_closure(self) -> 'Optional[Vault]':
-        return self._closure
+    def co_cellvars(self) -> Optional[Dict[str, Cell]]:
+        return self._cell_vars
 
-    def __call__(self, *args: ty.Any, **kargs: ty.Any) -> ty.Any:
+    def call(self, *args: 'Value') -> 'Value':
         # TODO(helq): several todos:
         # should save the type of the arguments passed, also, should copy the type of return
         # if the code is run again with the same parameters, we don't need to run it again.
@@ -54,12 +58,19 @@ class Function(Value):
         # - What happens when the function is called with Any() arguments, does it fail?
         # - What happens if the function is called with a specific set of arguments
         # Is the function calling itself recursevely, if yes, return Any() (probably)
-        return self._fun(*args, **kargs)
+        return self._fun(self, *args)  # type: ignore
+
+    def load_args(self, vau: 'Vault', params: List[Value]) -> None:
+        # TODO(helq): create alert of not mismatched size between declared args and number
+        # of params passed to run
+        for arg, param in zip(self._args, params):
+            assert arg in vau._locals_cells, "`{}` hasn't been declared as a local variable"
+            vau[arg] = param
 
 
 # Closure = List[Tuple[Tuple[str, ...], Scope]]
 ClosureDict = Dict[int, FrozenScope]
-VaultList = List[Dict[str, ty.Any]]
+ScopeLike = Dict[str, Value]
 
 
 def extendMerge(dic: Dict[ty.Any, Set[str]], other: Dict[ty.Any, Set[str]]) -> None:
@@ -70,79 +81,54 @@ def extendMerge(dic: Dict[ty.Any, Set[str]], other: Dict[ty.Any, Set[str]]) -> N
             dic[k] = v
 
 
+class FrozenVault(object):
+    def __init__(self, vault: 'Vault') -> None:
+        self.global_scope = FrozenScope(vault._global_scope)
+        self.nonlocals = {i: k.raw_content for i, k in vault._nonlocals_cells.items()
+                          if i in vault._nonlocals}
+        self.locals = {i: k.raw_content for i, k in vault._locals_cells.items()}
+
+
 class Vault(object):
     # __global_vault = None  # type: Optional[Vault]
+    __builtin_scope = None  # type: Dict[str, Value]
+
+    @classmethod
+    def get_builtins(cls) -> Dict[str, Value]:
+        if cls.__builtin_scope is None:
+            raise ValueError("No default builtins has been defined")
+        return cls.__builtin_scope
+
+    @classmethod
+    def set_builtins(cls, dic: Dict[str, Value]) -> None:
+        cls.__builtin_scope = dic
+
     def __init__(self,
-                 vault=None,               # type: Union[Vault, None, List[Scope]]
+                 vault=None,               # type: Union[Vault, None, Scope]
                  branch_names=['global'],  # type: List[str]
-                 global_=None              # type: Optional[bool]
                  ) -> None:
-        if global_ is not None:
-            self.__global = global_   # type: bool
-        self.__locals    = set()  # type: Set[str]
-        self.__globals   = set()  # type: Set[str]
-        self.__nonlocals = {}     # type: Dict[str, int]
-        self.__branch_names = branch_names[:]
+        self._branch_names = branch_names[:]
 
         if vault is None:
-            self.__vault: List[Scope] = [Scope()]
-            self.__global = True
+            self._global_scope = Scope()
+            self._global = True
         elif isinstance(vault, Vault):
             # making copy of vault (contains the same elements but it's a different list)
-            self.__vault = vault.__vault[:]
-            self.__vault.append(Scope())
-            self.__global = False
-        elif isinstance(vault, list) and all(isinstance(s, Scope) for s in vault):
-            # making copy of vault (contains the same elements but it's a different list)
-            assert len(vault) != 0, "Cannot create a vault with no scope"
-            self.__vault = vault[:]
-            self.__global = len(vault) == 1
+            self._global_scope = vault._global_scope
+            if vault._global:
+                self._nonlocals_cells = dict()  # type: Dict[str, Cell]
+            else:
+                self._nonlocals_cells = vault._nonlocals_cells.copy()
+                self._nonlocals_cells.update(vault._locals_cells)
+            self._nonlocals = set()  # type: Set[str]
+            self._locals_cells = dict()  # type: Dict[str, Cell]
+            self._global = False
         else:
-            raise VaultException("vault must be None, a Vault object,"
-                                 " or a list of LayerableDicts")
-        # self.closures = self.__create_closures()  # type: List[Scope]
-        # if Vault.__global_vault is None:
-        #     Vault.__global_vault = self
+            raise VaultException("vault must be None or a Vault object")
 
-    def __closuresInsideScope(self, scope: Scope, ignore: Set[int]) -> Dict[int, Scope]:
-        ignore = ignore.copy()
-        closures = dict()  # type: Dict[int, Scope]
-        for key, val in scope.items():
-            if isinstance(val, Function) and val.fun_closure is not None:
-                vault = val.fun_closure
-                vault_closures = vault.__getClosures(ignore)
-                closures.update(vault_closures)
-                ignore.update(vault_closures.keys())
-
-        return closures
-
-    def __getClosures(self, ignore: Optional[Set[int]] = None) -> Dict[int, Scope]:
-        closures = dict()  # type: Dict[int, Scope]
-        wasNone = ignore is None
-        if ignore is None:
-            ignore = set()
-        else:
-            ignore = ignore.copy()
-
-        for scope in self.__vault:
-            if scope.id not in ignore:
-                closures[scope.id] = scope
-                ignore.add(scope.id)
-
-                closrs_scope = self.__closuresInsideScope(scope, ignore)
-                ignore.update(closrs_scope.keys())
-                closures.update(closrs_scope)
-
-        if wasNone:
-            # removing scopes to which I have direct access
-            for scope in self.__vault:
-                del closures[scope.id]
-
-        return closures
-
-    def getClosures(self) -> Dict[int, Scope]:
-        return self.__getClosures()
-
+    # TODO(helq): check builtins!!!
+    # TODO(helq): get, set and del, shouldn't raise any error, the errors should be raised
+    # by Cell or Scope
     # TODO(helq): modify get item so we can pass later the position of the error. Maybe
     # ask for the variable together with its position, ie, key would be
     # Tuple[str, Pos] or Union[str, Tuple[str, Pos]]
@@ -153,25 +139,19 @@ class Vault(object):
         #     key_ = key
         #     src_pos = None
 
-        if self.__global or key in self.__globals:
-            scope_i = 0
-        elif key in self.__nonlocals:
-            assert len(self.__vault) > 2, \
-                "There are not enough scopes to declare a nonlocal variable"
-            scope_i = self.__nonlocals[key]
-        elif key in self.__locals:
-            scope_i = -1
-        else:
-            # assuming is in global scope
-            scope_i = 0
+        if not self._global:
+            if key in self._locals_cells:
+                return self._locals_cells[key].content
+            elif key in self._nonlocals_cells:
+                return self._nonlocals_cells[key].content
 
-        scope = self.__vault[scope_i]
-        if key in scope:
-            return scope[key]
+        # assuming is in global scope
+        if key in self._global_scope:
+            return self._global_scope[key]
 
         TypeCheckLogger().new_warning(
             "W201",
-            "Variable `{}` doesn't exists in the environment".format(key),
+            "Global variable `{}` isn't set".format(key),
             None
         )
         # TODO(helq): check if what was passed is a builtin, if it is, maybe
@@ -179,104 +159,82 @@ class Vault(object):
         # of the call of the builtin
         return Any(key)
 
-    # TODO(helq): setitem shouldn't fail! assume global variable if it hasn't being
-    # defined as nonlocal or local!
     def __setitem__(self, key: str, value: ty.Any) -> None:
-        if self.__global or key in self.__locals:
-            self.__vault[-1][key] = value
-        elif key in self.__globals:
-            self.__vault[0][key] = value
-        elif key in self.__nonlocals:
-            scope_i = self.__nonlocals[key]
-            self.__vault[scope_i][key] = value
-        else:
-            raise KeyError(
-                "The variable `{}` hasn't been defined as global, local or nonlocal"
-                .format(key))
+        if not self._global:
+            if key in self._nonlocals_cells:
+                self._nonlocals_cells[key].content = value
+            elif key in self._locals_cells:
+                self._locals_cells[key].content = value
+        self._global_scope[key] = value
 
     def __delitem__(self, key: str) -> None:
-        if self.__global or key in self.__globals:
-            scope_i = 0
-        elif key in self.__locals:
-            scope_i = -1
-        elif key in self.__nonlocals:
-            scope_i = self.__nonlocals[key]
+        if not self._global:
+            if key in self._nonlocals_cells:
+                del self._nonlocals_cells[key].content
+            elif key in self._locals_cells:
+                del self._locals_cells[key].content
+        if key in self._global_scope:
+            del self._global_scope[key]
         else:
-            raise KeyError(
-                "The variable `{}` hasn't been defined as global, local or nonlocal"
-                .format(key))
-
-        if key in self.__vault[scope_i]:
-            del self.__vault[scope_i][key]
-        else:
-            ...
-            # TODO(helq): add warning to the list of warnings, the variable
-            # cannot be deleted because it doesn't exists
+            TypeCheckLogger().new_warning(
+                "W201",
+                "Global variable `{}` isn't set".format(key),
+                None
+            )
 
     def __repr__(self) -> str:
-        return "Vault([" + \
-            ', '.join([
-                '{'
-                + ', '.join(sorted(repr(k)+': '+repr(v) for k, v in scope.items()))  # noqa: W503
-                + '}'  # noqa: W503
-                for scope in self.__vault
-            ])+"])"
+        return (
+            "Vault({"
+            + ', '.join(sorted(repr(k)+': '+repr(v) for k, v in self._global_scope.items()))
+            + "})")
+
+    def add_nonlocals(self, *keys: str) -> None:
+        for key in keys:
+            assert key not in self._locals_cells, \
+                "A variable cannot be both, local and nonlocal," \
+                " but `{}` is already marked as local".format(key)
+            assert key in self._nonlocals_cells, \
+                "The variable `{}` must be declared inside an enclosing scope".format(key)
+        self._nonlocals.update(keys)
+
+    def add_locals(self, *keys: str) -> None:
+        for key in keys:
+            assert key not in self._nonlocals, \
+                "A variable cannot be both, local and nonlocal," \
+                " but `{}` is already marked as nonlocal".format(key)
+            self._locals_cells[key] = Cell()
+
+    def get_cells(self, keys: List[str]) -> Dict[str, Cell]:
+        cells = {}  # type: Dict[str, Cell]
+        for key in keys:
+            if key in self._nonlocals_cells:
+                cells[key] = self._nonlocals_cells[key]
+            elif key in self._locals_cells:
+                cells[key] = self._locals_cells[key]
+            else:
+                raise ValueError("Variable is neither local or nonlocal in the current Vault")
+        return cells
 
     def _run_branch(self,
                     branch: Callable[[], None],
-                    branch_name: str = 'new_branch'
-                    ) -> Tuple[VaultList, ClosureDict]:
-        self.__branch_names.append(branch_name)
+                    branch_name: str = 'branch'
+                    ) -> FrozenVault:
+        self._branch_names.append(branch_name)
 
         BranchNode.current_branch = \
-            BranchNode.current_branch.newChild('.'.join(self.__branch_names))
+            BranchNode.current_branch.newChild('.'.join(self._branch_names))
 
         branch()  # running if branch code
 
-        branch_vault = (
-            [FrozenScope(scope) for scope in self.__vault],  # vault copy
-            {id_: FrozenScope(scope) for id_, scope in self.getClosures().items()}  # closures copy
-        )
+        branch_vault = FrozenVault(self)
 
         assert BranchNode.current_branch.parent is not None, \
             "Error trying to come back to previous branch state, unreachable"
         BranchNode.current_branch = BranchNode.current_branch.parent
 
-        self.__branch_names.pop()
+        self._branch_names.pop()
 
-        return branch_vault  # type: ignore
-
-    def add_global(self, *keys: str) -> None:
-        self.__globals.update(keys)
-        for k in keys:
-            assert k not in self.__nonlocals, \
-                "Variable `{}` has already been declared as nonlocal".format(k)
-            assert k not in self.__locals, \
-                "Variable `{}` has already been declared as locals".format(k)
-
-    def add_nonlocal(self, *keys: Tuple[str, int]) -> None:
-        assert len(self.__vault) > 2, \
-            "A nonlocal variable (or a closure) can only be" \
-            " created when inside two levels of function declarations"
-        max_depth = len(self.__vault) - 2
-        for k, d in keys:
-            assert 1 <= d <= max_depth, \
-                "The selected scope for the nonlocal variable `{}` must be between 1 and {}," \
-                " but I was given {}".format(k, max_depth, d)
-            self.__nonlocals[k] = -d-1
-        for k, d in keys:
-            assert k not in self.__globals, \
-                "Variable `{}` has already been declared as globals".format(k)
-            assert k not in self.__locals, \
-                "Variable `{}` has already been declared as locals".format(k)
-
-    def add_local(self, *keys: str) -> None:
-        self.__locals.update(keys)
-        for k in keys:
-            assert k not in self.__globals, \
-                "Variable `{}` has already been declared as globals".format(k)
-            assert k not in self.__nonlocals, \
-                "Variable `{}` has already been declared as nonlocal".format(k)
+        return branch_vault
 
     def runIfBranching(self,
                        if_res: Value,
@@ -313,48 +271,19 @@ class Vault(object):
 
     def _mergeBranches(
             self,
-            branch_l: Tuple[VaultList, ClosureDict],
-            branch_r: Optional[Tuple[VaultList, ClosureDict]] = None
+            branch_l: FrozenVault,
+            branch_r: Optional[FrozenVault] = None
     ) -> None:
         raise NotImplementedError
 
     def _replaceWithBranch(self,
-                           branch: Tuple[VaultList, ClosureDict]
+                           branch: FrozenVault
                            ) -> None:
-        somethingchanged = True
-        # this is brute force, I don't know how to know which scopes need to be changed once
-        # other some function has changed
-        while somethingchanged:
-            # branch.val can throw an exception if nothing has been set inside
-            # of it, this often happens if you try to examine its value before
-            # exiting the branch
-            somethingchanged = self._replaceWithBranch_helper(branch)
-
-    # returns true if something was modified
-    def _replaceWithBranch_helper(self, branch: Tuple[VaultList, ClosureDict]) -> bool:
-        modified = False
-
-        vault, branch_closures = branch
-        my_closures = self.getClosures()
-
-        assert len(vault) == len(self.__vault), \
-            "The branch's vault has a different number of scopes than myself"
-
-        for i, scope in enumerate(self.__vault):
-            mod = scope.updateAndDelete(vault[i])
-            if mod:
-                modified = True
-
-        # for each closure I have access
-        for vs, closure in my_closures.items():
-            # If there is a frozen closure from the branch that corresponds to
-            # this closure, modify closure given the frozen closure
-            if closure.id in branch_closures:
-                mod = closure.updateAndDelete(branch_closures[closure.id])
-                if mod:
-                    modified = True
-
-        return modified
+        self._global_scope.updateAndDelete(branch.global_scope)
+        for k, var in branch.nonlocals.items():
+            self._nonlocals_cells[k].raw_content = var
+        for k, var in branch.locals.items():
+            self._locals_cells[k].raw_content = var
 
     # to simulate * (star) import
     def load_module(self, mod: ModuleType) -> None:
