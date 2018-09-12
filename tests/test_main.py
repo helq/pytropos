@@ -43,6 +43,8 @@ class TestMain(object):
         ('tests/example_code/01-adding-mypy-types-fail.py', False),
         ('tests/example_code/02-number-inside-for-loop-fail.py', False),
         ('tests/example_code/03-number-inside-for-loop-success.py', True),
+        ('tests/example_code/04-if-branching-fail.py', False),
+        ('tests/example_code/07-zero-division-fail.py', False),
     ])
     def test_fail_and_success_in_examples(self, fileargs: Tuple[str, bool]) -> None:
         filepath, exit_alright = fileargs

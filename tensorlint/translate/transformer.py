@@ -47,6 +47,24 @@ compopt = {
 }  # type: Dict[Type[ast3.cmpop], str]
 
 
+def pos_as_tuple(node: ast3.expr) -> Optional[ast3.Tuple]:
+    # from tensorlint.translate.tools import pprint_ast_expr
+    # pprint_ast_expr(node)
+    if not hasattr(node, 'lineno'):
+        return None
+
+    return ast3.Tuple(
+        elts=[
+            ast3.Tuple(
+                elts=[ast3.Num(node.lineno), ast3.Num(node.col_offset)],
+                ctx=ast3.Load()
+            ),
+            ast3.Name(id='fn', ctx=ast3.Load())
+        ],
+        ctx=ast3.Load()
+    )
+
+
 class TensorlintTransformer(ast3.NodeTransformer):
     def __init__(self, filename: str) -> None:
         super().__init__()
@@ -193,16 +211,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
             keywords=[
                 ast3.keyword(
                     arg='src_pos',
-                    value=ast3.Tuple(
-                        elts=[
-                            ast3.Tuple(
-                                elts=[ast3.Num(node.lineno), ast3.Num(node.col_offset)],
-                                ctx=ast3.Load()
-                            ),
-                            ast3.Name(id='fn', ctx=ast3.Load())
-                        ],
-                        ctx=ast3.Load()
-                    ),
+                    value=pos_as_tuple(node),
                     ctx=ast3.Load()
                 )
             ])
@@ -233,16 +242,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
             keywords=[
                 ast3.keyword(
                     arg='src_pos',
-                    value=ast3.Tuple(
-                        elts=[
-                            ast3.Tuple(
-                                elts=[ast3.Num(node.lineno), ast3.Num(node.col_offset)],
-                                ctx=ast3.Load()
-                            ),
-                            ast3.Name(id='fn', ctx=ast3.Load())
-                        ],
-                        ctx=ast3.Load()
-                    ),
+                    value=pos_as_tuple(node),
                     ctx=ast3.Load()
                 )
             ])
@@ -255,17 +255,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
         node.keywords.append(  # TODO(helq): create a new node, don't copy
             ast3.keyword(
                 arg='src_pos',
-                value=ast3.Tuple(
-                    elts=[
-                        ast3.Tuple(
-                            elts=[ast3.Num(node.lineno),
-                                  ast3.Num(node.col_offset)],
-                            ctx=ast3.Load()
-                        ),
-                        ast3.Name(id='fn', ctx=ast3.Load())
-                    ],
-                    ctx=ast3.Load()
-                ),
+                value=pos_as_tuple(node),
                 ctx=ast3.Load()
             )
         )
@@ -303,9 +293,25 @@ class TensorlintTransformer(ast3.NodeTransformer):
         ]
 
     def visit_Name(self, node: ast3.Name) -> VisitorOutput:
+        # wraps the name of variable into a vault call, e.g.:
+        # `var` into `vau[('var', ((21, 3), fn))]`
+        pos = pos_as_tuple(node)
+        if pos is not None:
+            varname = ast3.Tuple(
+                elts=[
+                    ast3.Str(s=node.id),
+                    pos
+                ],
+                ctx=ast3.Load()
+            )  # type: ast3.expr
+        else:
+            varname = ast3.Str(s=node.id)
+
         return ast3.Subscript(
             value=ast3.Name(id=self.vau_name, ctx=ast3.Load()),
-            slice=ast3.Index(value=ast3.Str(s=node.id)),
+            slice=ast3.Index(
+                value=varname
+            ),
             ctx=node.ctx)
 
     def visit_Module(self, node: ast3.Module) -> VisitorOutput:
@@ -378,6 +384,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
         )
         return new_node  # type: ignore
 
+    # TODO(helq): Revise!!! Not all constants are of type bool
     def visit_NameConstant(self, node: ast3.NameConstant) -> VisitorOutput:
         return ast3.Call(
             func=ast3.Attribute(

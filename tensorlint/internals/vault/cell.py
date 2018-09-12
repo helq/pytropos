@@ -1,6 +1,6 @@
 from typing import Dict, Union, List, Optional  # noqa: F401
 
-from ..values.value import Value, Any
+from ..values.value import Value
 
 from .branch_node import BranchNode, global_branch
 
@@ -61,21 +61,26 @@ class Cell(object):
         self._content_layers[-1] = val
 
     @property
+    def is_there_something(self) -> bool:
+        for cont in reversed(self._content_layers):
+            if cont is Deleted:
+                return False
+            elif cont is not None:
+                return True
+        return False
+
+    @property
     def content(self) -> Value:
         if self.__branch != BranchNode.current_branch:
             self.__moveToNewBranch()
         for cont in reversed(self._content_layers):
             if cont is Deleted:
-                # TODO(helq): Add warning!!
-                # raise ValueError("Cell is empty!")
-                return Any()
+                raise KeyError("Cell is empty. The variable has been deleted")
             elif cont is not None:
                 # If the value is not None and not Deleted, then it must be a Value (or so
                 # I hope)
                 return cont  # type: ignore
-        # TODO(helq): Add warning!!
-        # raise ValueError("Cell is empty!")
-        return Any()
+        raise KeyError("Cell is empty. No value has been saved on it")
 
     @content.setter
     def content(self, content: Value) -> None:

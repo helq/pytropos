@@ -11,6 +11,8 @@ from .branch_node import BranchNode
 from .scope import FrozenScope, Scope
 from .cell import Cell
 
+from ..tools import Pos
+
 import tensorlint.internals.operations.unitary as unitary
 
 __all__ = ['Vault', 'Function']
@@ -83,10 +85,15 @@ def extendMerge(dic: Dict[ty.Any, Set[str]], other: Dict[ty.Any, Set[str]]) -> N
 
 class FrozenVault(object):
     def __init__(self, vault: 'Vault') -> None:
+        self.is_global = vault._global
         self.global_scope = FrozenScope(vault._global_scope)
-        self.nonlocals = {i: k.raw_content for i, k in vault._nonlocals_cells.items()
-                          if i in vault._nonlocals}
-        self.locals = {i: k.raw_content for i, k in vault._locals_cells.items()}
+        if self.is_global:
+            self.nonlocals = {}  # type: Dict[str, Union[object, None, Value]]
+            self.locals = {}     # type: Dict[str, Union[object, None, Value]]
+        else:
+            self.nonlocals = {i: k.raw_content for i, k in vault._nonlocals_cells.items()
+                              if i in vault._nonlocals}
+            self.locals = {i: k.raw_content for i, k in vault._locals_cells.items()}
 
 
 class Vault(object):
@@ -129,21 +136,34 @@ class Vault(object):
     # TODO(helq): check builtins!!!
     # TODO(helq): get, set and del, shouldn't raise any error, the errors should be raised
     # by Cell or Scope
-    # TODO(helq): modify get item so we can pass later the position of the error. Maybe
-    # ask for the variable together with its position, ie, key would be
-    # Tuple[str, Pos] or Union[str, Tuple[str, Pos]]
-    def __getitem__(self, key: str) -> ty.Any:
-        # if isinstance(key, tuple):
-        #     key_, src_pos = key
-        # else:
-        #     key_ = key
-        #     src_pos = None
+    def __getitem__(self, key_: Union[str, Tuple[str, Pos]]) -> ty.Any:
+        if not isinstance(key_, tuple):
+            key = key_
+            src_pos = None  # type: Optional[Pos]
+        else:
+            key, src_pos = key_
 
         if not self._global:
             if key in self._locals_cells:
-                return self._locals_cells[key].content
+                if self._locals_cells[key].is_there_something:
+                    return self._locals_cells[key].content
+                else:
+                    TypeCheckLogger().new_warning(
+                        "W202",
+                        "The local variable `{}` isn't set".format(key),
+                        src_pos
+                    )
+                    return Any()
             elif key in self._nonlocals_cells:
-                return self._nonlocals_cells[key].content
+                if self._nonlocals_cells[key].is_there_something:
+                    return self._nonlocals_cells[key].content
+                else:
+                    TypeCheckLogger().new_warning(
+                        "W203",
+                        "The nonlocal variable `{}` isn't set".format(key),
+                        src_pos
+                    )
+                    return Any()
 
         # assuming is in global scope
         if key in self._global_scope:
@@ -152,14 +172,20 @@ class Vault(object):
         TypeCheckLogger().new_warning(
             "W201",
             "Global variable `{}` isn't set".format(key),
-            None
+            src_pos
         )
         # TODO(helq): check if what was passed is a builtin, if it is, maybe
         # you should return its typing version, just to check for correctness
         # of the call of the builtin
         return Any(key)
 
-    def __setitem__(self, key: str, value: ty.Any) -> None:
+    def __setitem__(self, key_: Union[str, Tuple[str, Pos]], value: ty.Any) -> None:
+        if not isinstance(key_, tuple):
+            key = key_
+            src_pos = None  # type: Optional[Pos]
+        else:
+            key, src_pos = key_
+
         if not self._global:
             if key in self._nonlocals_cells:
                 self._nonlocals_cells[key].content = value
@@ -167,19 +193,39 @@ class Vault(object):
                 self._locals_cells[key].content = value
         self._global_scope[key] = value
 
-    def __delitem__(self, key: str) -> None:
+    def __delitem__(self, key_: Union[str, Tuple[str, Pos]]) -> None:
+        if not isinstance(key_, tuple):
+            key = key_
+            src_pos = None  # type: Optional[Pos]
+        else:
+            key, src_pos = key_
+
         if not self._global:
             if key in self._nonlocals_cells:
-                del self._nonlocals_cells[key].content
+                if self._locals_cells[key].is_there_something:
+                    del self._locals_cells[key].content
+                else:
+                    TypeCheckLogger().new_warning(
+                        "W202",
+                        "The local variable `{}` has been already deleted".format(key),
+                        src_pos
+                    )
             elif key in self._locals_cells:
-                del self._locals_cells[key].content
+                if self._nonlocals_cells[key].is_there_something:
+                    del self._nonlocals_cells[key].content
+                else:
+                    TypeCheckLogger().new_warning(
+                        "W203",
+                        "The nonlocal variable `{}` has been already deleted".format(key),
+                        src_pos
+                    )
         if key in self._global_scope:
             del self._global_scope[key]
         else:
             TypeCheckLogger().new_warning(
                 "W201",
                 "Global variable `{}` isn't set".format(key),
-                None
+                src_pos
             )
 
     def __repr__(self) -> str:
