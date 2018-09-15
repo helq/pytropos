@@ -249,17 +249,32 @@ class TensorlintTransformer(ast3.NodeTransformer):
         return new_v
 
     def visit_Call(self, node: ast3.Call) -> VisitorOutput:
-        # adding an attribute to the function call `src_pos`, the position
-        # of the function call in the original code
+        # converting:
+        # > afun(3)
+        # into:
+        # afun.call(3, src_pos=...)
         self.generic_visit(node)
-        node.keywords.append(  # TODO(helq): create a new node, don't copy
-            ast3.keyword(
-                arg='src_pos',
-                value=pos_as_tuple(node),
-                ctx=ast3.Load()
-            )
+
+        return ast3.Call(
+            func=ast3.Attribute(
+                value=node.func,
+                attr='call',
+                ctx=ast3.Load(),
+            ),
+            args=node.args,
+            keywords=node.keywords + [
+                ast3.keyword(
+                    arg='src_pos',
+                    value=pos_as_tuple(node),
+                    ctx=ast3.Load()
+                )
+            ]
         )
-        return node
+
+    def visit_Assign(self, node: ast3.Assign) -> VisitorOutput:
+        # Deleting comment annotation :S
+        self.generic_visit(node)
+        return ast3.Assign(targets=node.targets, value=node.value)
 
     def visit_AnnAssign(self, node: ast3.AnnAssign) -> VisitorOutput:
         # Deleting annotation :S
@@ -270,26 +285,139 @@ class TensorlintTransformer(ast3.NodeTransformer):
         return new_node
 
     def visit_FunctionDef(self, node: ast3.FunctionDef) -> VisitorOutput:
+        # Converting something like:
+        #
+        # > def myfun(i, x):
+        # >  return i + x
+        #
+        # into:
+        #
+        # > def function(fun, *args):
+        # >   vau1 = tl.Vault(vau)
+        # >   vau1.add_locals('i', 'x')
+        # >   fun.load_args(vau1, args)
+        # >   return tl.add(vau1['i'], vau1['x'])
+        # > vau['myfun'] = tl.Function(function, None, ('i', 'x'))
+        #
+
+        # TODO(helq): (IMPORTANT) create function to detect nonlocal variables, local
+        # variables and global variables
+        nonlocal_vars = []  # type: List[str]
+
+        outside_vau = self.vau_name
+
         self.scope_level += 1
-        for stmt in node.body:
-            self.visit(stmt)
-        for expr in node.decorator_list:
-            self.visit(expr)
+
+        inside_vau = self.vau_name
+
+        new_body: List[ast3.stmt] = [
+            # vau1 = tl.Vault(vau)
+            ast3.Assign(
+                targets=[ast3.Name(id=inside_vau, ctx=ast3.Store())],
+                value=ast3.Call(
+                    func=ast3.Attribute(
+                        value=ast3.Name(id='tl', ctx=ast3.Load()),
+                        attr='Vault',
+                        ctx=ast3.Load(),
+                    ),
+                    args=[ast3.Name(id=outside_vau, ctx=ast3.Load())],
+                    keywords=[],
+                ),
+            ),
+        ]
+
+        arg_names = [arg.arg for arg in node.args.args]
+        if len(arg_names) > 0:
+            new_body.append(
+                # vau1.add_locals('i', 'x')
+                ast3.Expr(
+                    value=ast3.Call(
+                        func=ast3.Attribute(
+                            value=ast3.Name(id=inside_vau, ctx=ast3.Load()),
+                            attr='add_locals',
+                            ctx=ast3.Load(),
+                        ),
+                        args=[ast3.Str(s=arg) for arg in arg_names],
+                        keywords=[],
+                    ),
+                )
+            )
+
+        new_body.append(
+            # fun.load_args(vau1, args)
+            ast3.Expr(
+                value=ast3.Call(
+                    func=ast3.Attribute(
+                        value=ast3.Name(id='fun', ctx=ast3.Load()),
+                        attr='load_args',
+                        ctx=ast3.Load(),
+                    ),
+                    args=[
+                        ast3.Name(id=inside_vau, ctx=ast3.Load()),
+                        ast3.Name(id='args', ctx=ast3.Load()),
+                    ],
+                    keywords=[],
+                ),
+            )
+        )
+
+        new_body.extend([self.visit(stmt) for stmt in node.body])
+        new_decorator_list = [self.visit(expr) for expr in node.decorator_list]
+
+        # TODO(helq): Improve capture of args, there may be many types of them
+        for arg in node.args.args:
+            assert isinstance(arg, ast3.arg)
+
         self.scope_level -= 1
+
+        if len(nonlocal_vars) == 0:
+            nonlocal_vars_as_args = ast3.NameConstant(value=None)
+        else:
+            raise NotImplementedError("nonlocal_vars_as_args hasn't been defined yet fully")
+
         return [
-            node,
-            # ast3.Assign(
-            #     targets=[
-            #         ast3.Subscript(
-            #             value=ast3.Name(id=self.vau_name, ctx=ast3.Load()),
-            #             slice=ast3.Index(
-            #                 value=ast3.Str(s=node.name),
-            #             ),
-            #             ctx=ast3.Store(),
-            #         ),
-            #     ],
-            #     value=ast3.Name(id=node.name, ctx=ast3.Load()),
-            # )
+            ast3.FunctionDef(
+                name='function',
+                args=ast3.arguments(
+                    args=[ast3.arg(arg='fun', annotation=None)],
+                    vararg=ast3.arg(arg='args', annotation=None),
+                    kwonlyargs=[],
+                    kw_defaults=[],
+                    kwarg=None,
+                    defaults=[],
+                ),
+                body=new_body,
+                decorator_list=new_decorator_list,
+                returns=None,
+            ),
+            # vau['myfun'] = tl.Function(function, None, ('i', 'x'))
+            ast3.Assign(
+                targets=[
+                    ast3.Subscript(
+                        value=ast3.Name(id=outside_vau, ctx=ast3.Load()),
+                        slice=ast3.Index(
+                            value=ast3.Str(s=node.name),
+                        ),
+                        ctx=ast3.Store(),
+                    ),
+                ],
+                value=ast3.Call(
+                    func=ast3.Attribute(
+                        value=ast3.Name(id='tl', ctx=ast3.Load()),
+                        attr='DefFunction',
+                        ctx=ast3.Load(),
+                    ),
+                    args=[
+                        ast3.Name(id='function', ctx=ast3.Load()),
+                        nonlocal_vars_as_args,
+                        ast3.Tuple(
+                            elts=[ast3.Str(s=ar) for ar in arg_names],
+                            ctx=ast3.Load(),
+                        ),
+                    ],
+                    keywords=[],
+                ),
+            )
         ]
 
     def visit_Name(self, node: ast3.Name) -> VisitorOutput:

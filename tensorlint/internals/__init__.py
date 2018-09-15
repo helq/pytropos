@@ -1,4 +1,4 @@
-from tensorlint.internals.values import (  # noqa: F401
+from .values import (  # noqa: F401
     Int, Float, Bool, Iterable, for_loop, ValueAsWithStmt, Any
 )
 from .vault import Vault, Function        # noqa: F401

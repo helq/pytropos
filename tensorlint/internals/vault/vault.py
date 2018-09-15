@@ -52,7 +52,7 @@ class Function(Value):
     def co_cellvars(self) -> Optional[Dict[str, Cell]]:
         return self._cell_vars
 
-    def call(self, *args: 'Value') -> 'Value':
+    def call(self, *args: 'Value', src_pos: Optional[Pos] = None) -> 'Value':
         # TODO(helq): several todos:
         # should save the type of the arguments passed, also, should copy the type of return
         # if the code is run again with the same parameters, we don't need to run it again.
