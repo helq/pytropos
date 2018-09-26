@@ -241,6 +241,9 @@ def _Float_op_output_is_any(
             except ZeroDivisionError as msg:
                 new_n = None
                 TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
+            except OverflowError as msg:
+                new_n = None
+                TypeCheckLogger().new_warning("E003", "OverflowError: " + str(msg), src_pos)
 
             if isinstance(new_n, int):
                 return Int(new_n)
