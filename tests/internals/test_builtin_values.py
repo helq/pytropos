@@ -338,10 +338,10 @@ class TestAny(object):
         """
         An Any object is callable, and its result is Any()
         """
-        assert isinstance(Any()(), Any)
-        assert isinstance(Any()(4), Any)
-        assert isinstance(Any()(*args), Any)
-        assert isinstance(Any()(**kargs), Any)
+        assert isinstance(Any().call(), Any)
+        assert isinstance(Any().call(4), Any)
+        assert isinstance(Any().call(*args), Any)
+        assert isinstance(Any().call(**kargs), Any)
 
     @given(almost_any_value)
     def test_any_operated_with_any_other_value_results_in_any(

@@ -7,7 +7,7 @@ from ..operations.base import add_ops_to_global
 from ..tools import Pos
 from ..errors import TypeCheckLogger
 
-__all__ = ['Int', 'Float', 'Bool', 'Iterable', 'ValueAsWithStmt', 'for_loop']
+__all__ = ['Int', 'Float', 'Bool', 'Str', 'Iterable', 'ValueAsWithStmt', 'for_loop']
 
 
 class Iterable(Value):
@@ -64,7 +64,7 @@ def _Int_op_output_is_int(
                 TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
             except ValueError as msg:  # This only happens with rshift and lshift
                 new_n = None
-                TypeCheckLogger().new_warning("E001", "ValueError: " + str(msg), src_pos)
+                TypeCheckLogger().new_warning("E002", "ValueError: " + str(msg), src_pos)
             return Int(new_n)
         return NotImplemented
 

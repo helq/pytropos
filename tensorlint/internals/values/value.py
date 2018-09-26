@@ -25,6 +25,13 @@ class Value(object):
     def python_repr(self) -> str:
         raise NotImplementedError
 
+    def call(self, *args: ty.Any, **kargs: ty.Any) -> ty.Any:
+        raise NotImplementedError
+
+    @property
+    def get(self) -> ty.Any:
+        raise NotImplementedError
+
 
 # TODO(helq): Implement all methods special method names
 # https://docs.python.org/3/reference/datamodel.html#special-method-names
@@ -39,6 +46,13 @@ class Any(Value):
         if Any.error_when_used:
             raise Exception("Trying to use Any value")
 
+    def call(self, *args: ty.Any, **kargs: ty.Any) -> 'Any':
+        return Any()
+
+    @property
+    def get(self) -> 'Any':
+        return Any()
+
     def __init__(self, *args: ty.Any, **kargs: ty.Any) -> None:
         if len(args) > 0:
             if Any.error_when_used:
@@ -50,10 +64,16 @@ class Any(Value):
         return "Any()"
 
     def __call__(self, *args, **kargs) -> 'Any':  # type: ignore
-        return Any()
+        raise NotImplementedError
 
     def __getattr__(self, name: str) -> 'Any':
         return Any()
 
     def __getitem__(self, key: ty.Any) -> 'Any':
         return Any()
+
+    def __setitem__(self, key: ty.Any, val: ty.Any) -> None:
+        pass
+
+    def __delitem__(self, key: ty.Any) -> None:
+        pass

@@ -4,6 +4,7 @@ import typing as ty
 from types import ModuleType
 
 from ..values.value import Value, Any
+from ..values.function import Function
 from ..values.builtin_values import Bool
 from ..errors import TypeCheckLogger
 
@@ -15,14 +16,14 @@ from ..tools import Pos
 
 import tensorlint.internals.operations.unitary as unitary
 
-__all__ = ['Vault', 'Function']
+__all__ = ['Vault', 'DefFunction', 'Module']
 
 
 class VaultException(Exception):
     pass
 
 
-class Function(Value):
+class DefFunction(Function):
     # TODO(helq): extend cocoon function to return more stuff, like freevars and other
     # potentially useful data from the function
     def __init__(self,
@@ -52,7 +53,7 @@ class Function(Value):
     def co_cellvars(self) -> Optional[Dict[str, Cell]]:
         return self._cell_vars
 
-    def call(self, *args: 'Value', src_pos: Optional[Pos] = None) -> 'Value':
+    def call(self, *args: 'Value', src_pos: Optional[Pos] = None) -> 'Value':  # type: ignore
         # TODO(helq): several todos:
         # should save the type of the arguments passed, also, should copy the type of return
         # if the code is run again with the same parameters, we don't need to run it again.
@@ -332,13 +333,52 @@ class Vault(object):
             self._locals_cells[k].raw_content = var
 
     # to simulate * (star) import
-    def load_module(self, mod: ModuleType) -> None:
-        if hasattr(mod, '__all__'):
-            exported_vars = getattr(mod, '__all__')  # type: List[str]
+    def load_module(self, module: ModuleType, name: str) -> None:
+        mod = Module(module, name)
+        for var in mod.exported_vars:
+            self[var] = mod.get[var]
+
+
+class Module(Value):
+    def __init__(self, mod: ModuleType, name: str) -> None:
+        self.module = mod
+        self.name = name
+
+    @property
+    def exported_vars(self) -> List[str]:
+        if hasattr(self.module, '__all__'):
+            exported_vars = getattr(self.module, '__all__')  # type: List[str]
         else:
-            exported_vars = [var for var in dir(mod) if var[0] != '_']
-        for var in exported_vars:
-            self[var] = getattr(mod, var)
+            exported_vars = [var for var in dir(self.module) if var[0] != '_']
+
+        return exported_vars
+
+    def __getitem__(self, key_: Union[str, Tuple[str, Pos]]) -> Value:
+        if not isinstance(key_, tuple):
+            key = key_
+            src_pos = None  # type: Optional[Pos]
+        else:
+            key, src_pos = key_
+
+        if hasattr(self.module, key):
+            return getattr(self.module, key)  # type: ignore
+
+        TypeCheckLogger().new_warning(
+            "W204",
+            "The module `{}` doesn't have an attribute `{}`".format(self.name, key),
+            src_pos
+        )
+        return Any()
+
+    def __setitem__(self, key: str, var: Value) -> None:
+        raise NotImplementedError("You cannot overwrite variables inside a module yet!  Sorry")
+
+    def __delitem__(self, key: str) -> None:
+        raise NotImplementedError("You cannot overwrite variables inside a module yet!  Sorry")
+
+    @property
+    def get(self) -> 'Module':
+        return self
 
 
 if __name__ == "__main__":

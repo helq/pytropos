@@ -105,22 +105,16 @@ def main(argv: List[str]) -> int:
     # astpretty.pprint(newast_py)
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
 
-    from multiprocessing import Process
-
-    p = Process(
-        target=run_transformed_type_checking_code,
-        args=(newast_comp,)
-    )
-
-    p.start()
-    p.join()
+    from tensorlint.internals.errors import TypeCheckLogger
+    exitcode = run_transformed_type_checking_code(newast_comp)
+    TypeCheckLogger.clean_sing()
 
     dprint("Closing tensorlint", verb=1)
 
-    return p.exitcode  # type: ignore
+    return exitcode
 
 
-def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
+def run_transformed_type_checking_code(newast_comp: CodeType) -> int:
     tl_globals = {}  # type: Dict[str, Any]
 
     # from tensorlint.internals.tools import NonImplementedTL
@@ -141,18 +135,19 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> None:
         derror(tl_globals['vau'], end='\n\n', verb=2)
 
         traceback.print_exc()
-        raise SystemExit(2)
+        return 2
 
     derror("\nLast computed variables values (vault):", verb=2)
     derror(tl_globals['vau'], end='\n\n', verb=2)
 
     if len(TypeCheckLogger().warnings) > 0:
         derror(TypeCheckLogger())
-        raise SystemExit(1)
+        return 1
     else:
         dprint('No type checking error found.', verb=1)
         dprint('I wasn\'t able to find any error in the code, though there may be some (sorry)',
                verb=2)
+    return 0
 
 
 def entry_point() -> None:

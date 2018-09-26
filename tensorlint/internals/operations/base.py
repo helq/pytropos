@@ -4,6 +4,7 @@ from typing import List  # noqa: F401
 
 from ..values.value import Value, Any
 from ..tools import Pos
+from ..errors import TypeCheckLogger
 
 __all__ = [
     'RuleError', 'BinRules',
@@ -17,24 +18,27 @@ BinOp = ty.Callable[[Value, Value, Optional[Pos]], Value]
 UniOp = ty.Callable[[Value, Optional[Pos]], Value]
 
 binary_operators = [
-    ('add',      ('__add__',      '__radd__'     )),  # noqa: E202
-    ('sub',      ('__sub__',      '__rsub__'     )),  # noqa: E202
-    ('mul',      ('__mul__',      '__rmul__'     )),  # noqa: E202
-    ('truediv',  ('__truediv__',  '__rtruediv__' )),  # noqa: E202
-    ('floordiv', ('__floordiv__', '__rfloordiv__')),  # noqa: E202
-    ('mod',      ('__mod__',      '__rmod__'     )),  # noqa: E202
-    ('pow',      ('__pow__',      '__rpow__'     )),  # noqa: E202
-    ('lshift',   ('__lshift__',   '__rlshift__'  )),  # noqa: E202
-    ('rshift',   ('__rshift__',   '__rrshift__'  )),  # noqa: E202
-    ('eq',       ('__eq__',)),  # noqa: E202
-]  # type: List[Tuple[str, Union[Tuple[str], Tuple[str, str]]]]
+    ('add',      '+',  ('__add__',      '__radd__'     )),  # noqa: E202
+    ('sub',      '-',  ('__sub__',      '__rsub__'     )),  # noqa: E202
+    ('mul',      '*',  ('__mul__',      '__rmul__'     )),  # noqa: E202
+    ('truediv',  '/',  ('__truediv__',  '__rtruediv__' )),  # noqa: E202
+    ('floordiv', '//', ('__floordiv__', '__rfloordiv__')),  # noqa: E202
+    ('mod',      '%',  ('__mod__',      '__rmod__'     )),  # noqa: E202
+    ('pow',      '**', ('__pow__',      '__rpow__'     )),  # noqa: E202
+    ('lshift',   '<<', ('__lshift__',   '__rlshift__'  )),  # noqa: E202
+    ('rshift',   '>>', ('__rshift__',   '__rrshift__'  )),  # noqa: E202
+    ('eq',       '==', ('__eq__',)),  # noqa: E202
+    # ('neq',      '==', ('__neq__',)),  # noqa: E202
+    # ('lt',       '<', ('__lt__',)),  # noqa: E202
+    # ('gt',       '>', ('__gt__',)),  # noqa: E202
+]  # type: List[Tuple[str, str, Union[Tuple[str], Tuple[str, str]]]]
 
 unary_operators = [
     ('bool', ('__bool__',)),
     ('len', ('__len__',)),
 ]
 
-all_operators = [op for op, _ in binary_operators]
+all_operators = [op for op, _, _ in binary_operators]
 all_operators.extend([op for op, _ in unary_operators])
 
 
@@ -50,7 +54,8 @@ all_operators.extend([op for op, _ in unary_operators])
 #     return res
 
 def __create_binop(
-        dunder_ops: Union[Tuple[str], Tuple[str, str]]
+        dunder_ops: Union[Tuple[str], Tuple[str, str]],
+        opname: str
 ) -> ty.Callable[[Value, Value, Optional[Pos]], Union[Value, 'NotImplemented']]:
 
     def binop(valL: Value, valR: Value, src_pos: Optional[Pos] = None) -> Value:
@@ -61,7 +66,16 @@ def __create_binop(
         if res is NotImplemented and len(dunder_ops) > 1:
             res = binop_rules.run(dunder_ops[1], valR, valL, src_pos)  # eg, trying with __radd__
         if res is NotImplemented:
-            # TODO(helq): add warning indicating that the two values cannot be `sub`ed
+            # TODO(helq): This warning should be hidden by default!
+            TypeCheckLogger().new_warning(
+                "E009",
+                "unsupported operand type(s) for {op}: '{leftarg}' and '{rightarg}'"
+                .format(
+                    op=opname,
+                    leftarg=valL.python_name,
+                    rightarg=valR.python_name
+                ),
+                src_pos)
             return Any()
         return res
 
@@ -69,9 +83,9 @@ def __create_binop(
 
 
 # Defining operators to export (add, sub, ...) and which dunder methods are valid
-for op, dunder_ops in binary_operators:
+for op, sym, dunder_ops in binary_operators:
     __all__.append(op)
-    globals()[op] = __create_binop(dunder_ops)
+    globals()[op] = __create_binop(dunder_ops, sym)
 
 
 class RuleError(Exception):
@@ -81,7 +95,7 @@ class RuleError(Exception):
 class BinRules(object):
     def __init__(self) -> None:
         self._rules = {}  # type: ty.Dict[str, ty.Dict[ty.Type, BinOp]]
-        for _, rule_names in binary_operators:
+        for _, _, rule_names in binary_operators:
             for r_name in rule_names:
                 self._rules[r_name] = {}
 

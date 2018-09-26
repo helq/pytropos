@@ -8,11 +8,6 @@ __all__ = ['TensorlintTransformer']
 
 VisitorOutput = Union[List[ast3.AST], ast3.AST, None]
 
-# TODO(helq): add trick to documentation, use:
-# > from tensorlint.translate.tools import pprint_ast_expr
-# > pprint_ast_expr('expr')
-# to get how to write by hand a part of the tree (AST)
-
 # TODO(helq): remove type comments
 
 operations = {
@@ -117,6 +112,8 @@ class TensorlintTransformer(ast3.NodeTransformer):
             # TODO(helq): add warning of number type not-identified
 
     def visit_Import(self, node: ast3.Import) -> VisitorOutput:
+
+        # Checking if the library being loaded is supported by tensorlint
         non_supported_modules: List[str] = []
         modules_supported:    List[Tuple[str, Optional[str]]] = []
         for alias in node.names:
@@ -127,6 +124,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
                     alias.name if alias.asname is None else alias.asname
                 )
 
+        # Loading fake modules from tensorlint (if supported)
         libs: List[ast3.AST] = []
         if len(modules_supported) > 0:
             libs.append(
@@ -138,12 +136,15 @@ class TensorlintTransformer(ast3.NodeTransformer):
             libs.extend(
                 ast3.parse(  # type: ignore
                     '\n'.join([
-                        "vau['{name}'] = {name}".format(name=name if asname is None else asname)
+                        "vau['{name}'] = tl.Module({name}, '{name}')".format(
+                            name=name if asname is None else asname
+                        )
                         for name, asname in modules_supported
                     ])
                 ).body
             )
 
+        # Loading modules as Any (if not supported)
         if len(non_supported_modules) > 0:
             libs.extend(
                 ast3.parse(  # type: ignore
@@ -297,7 +298,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
         # >   vau1.add_locals('i', 'x')
         # >   fun.load_args(vau1, args)
         # >   return tl.add(vau1['i'], vau1['x'])
-        # > vau['myfun'] = tl.Function(function, None, ('i', 'x'))
+        # > vau['myfun'] = tl.DefFunction(function, None, ('i', 'x'))
         #
 
         # TODO(helq): (IMPORTANT) create function to detect nonlocal variables, local
@@ -390,7 +391,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
                 decorator_list=new_decorator_list,
                 returns=None,
             ),
-            # vau['myfun'] = tl.Function(function, None, ('i', 'x'))
+            # vau['myfun'] = tl.DefFunction(function, None, ('i', 'x'))
             ast3.Assign(
                 targets=[
                     ast3.Subscript(
@@ -450,7 +451,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
                 # 'tl.Any.error_when_used = True\n'
                 'import tensorlint.libs.base\n'
                 'vau = tl.Vault()\n'
-                'vau.load_module(tensorlint.libs.base)\n'
+                'vau.load_module(tensorlint.libs.base, "__builtins__")\n'
                 'fn = {}\n'.format(repr(self.filename))
             ).body +
             node.body
@@ -521,5 +522,39 @@ class TensorlintTransformer(ast3.NodeTransformer):
                 ctx=ast3.Load(),
             ),
             args=[ast3.NameConstant(value=node.value)],
+            keywords=[],
+        )
+
+    def visit_Attribute(self, node: ast3.Attribute) -> VisitorOutput:
+        self.generic_visit(node)
+
+        pos = ast3.Tuple(
+            elts=[
+                ast3.Str(s=node.attr),
+                pos_as_tuple(node)
+            ],
+            ctx=ast3.Load()
+        )
+
+        return ast3.Subscript(
+            value=ast3.Attribute(
+                value=node.value,
+                attr='get',
+                ctx=ast3.Load(),
+            ),
+            slice=ast3.Index(
+                value=pos,
+            ),
+            ctx=node.ctx,
+        )
+
+    def visit_Str(self, node: ast3.Str) -> VisitorOutput:
+        return ast3.Call(
+            func=ast3.Attribute(
+                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                attr='Str',
+                ctx=ast3.Load(),
+            ),
+            args=[],
             keywords=[],
         )

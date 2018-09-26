@@ -8,6 +8,8 @@ from tensorlint.internals.errors import TypeCheckLogger
 from tensorlint.internals.tools import NonImplementedTL, Pos
 from tensorlint.internals.rules import congruent
 
+from tensorlint.internals.values.function import MockFunction
+
 __all__ = ['zeros', 'ones', 'dot', 'float32', 'float64']
 
 T = ty.TypeVar('T')
@@ -77,6 +79,7 @@ class float32(NdarrayDtype):
     pass
 
 
+@MockFunction
 def zeros(shape: ty.Tuple[Int, ...],
           dtype: Type = float64,
           src_pos: ty.Optional[Pos] = None) -> ndarray:
@@ -107,6 +110,7 @@ def zeros(shape: ty.Tuple[Int, ...],
 ones = zeros
 
 
+@MockFunction
 def dot(vall: Value,
         valr: Value,
         src_pos: ty.Optional[Pos] = None) -> Value:

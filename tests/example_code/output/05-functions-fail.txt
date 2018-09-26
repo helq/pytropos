@@ -1,0 +1,1 @@
+tests/example_code/05-functions-fail.py:5:4: E009 unsupported operand type(s) for +: 'int' and 'str'

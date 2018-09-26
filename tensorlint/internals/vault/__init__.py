@@ -1,3 +1,3 @@
-from .vault import Vault, Function
+from .vault import Vault, DefFunction, Module
 
-__all__ = ['Vault', 'Function']
+__all__ = ['Vault', 'DefFunction', 'Module']

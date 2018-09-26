@@ -1,13 +1,14 @@
 from tensorlint.internals import Int, Iterable, Any
-# from tensorlint.internals.tools import NonImplementedTL
+from tensorlint.internals.tools import Pos
 
-from typing import Optional, Tuple
+from tensorlint.internals.values.function import MockFunction
+
+from typing import Optional
 
 __all__ = ['range', 'print']
 
-Pos = Tuple[int, int]
 
-
+@MockFunction
 def range(val: Int,
           val2: Optional[Int] = None,
           sep: Optional[Int] = None,

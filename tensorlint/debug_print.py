@@ -1,5 +1,5 @@
-from functools import partial
-import sys
+# from functools import partial
+# import sys
 
 from typing import Any
 
@@ -11,4 +11,8 @@ def dprint(*args: Any, verb: int = 0, **kargs: Any) -> None:
         print(*args, **kargs)
 
 
-derror = partial(dprint, file=sys.stderr)
+# TODO(helq): use sys.stderr for derror. The major problem of doing this is that pytest
+# doesn't give me any error at all!!! ie, `capsys.readouterr().err` doesn't work at all!!!
+# REPORT TO PYTEST!
+# derror = partial(dprint, file=sys.stderr)
+derror = dprint
