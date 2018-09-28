@@ -39,7 +39,7 @@ except ImportError:
 sys.path.insert(0, os.path.abspath('.'))
 
 # Constants
-CODE_DIRECTORY = 'tensorlint'
+CODE_DIRECTORY = 'pytropos'
 DOCS_DIRECTORY = 'docs'
 TESTS_DIRECTORY = 'tests'
 PYTEST_FLAGS = ['--doctest-modules']
@@ -48,9 +48,9 @@ use_flake8 = True
 
 # Import metadata. Normally this would just be:
 #
-#     from tensorlint import metadata
+#     from pytropos import metadata
 #
-# However, when we do this, we also import `tensorlint/__init__.py'. If this
+# However, when we do this, we also import `pytropos/__init__.py'. If this
 # imports names from some other modules and these modules have third-party
 # dependencies that need installing (which happens after this file is run), the
 # script will crash. What we do instead is to load the metadata module by path
@@ -58,7 +58,7 @@ use_flake8 = True
 # metadata has no dependencies, otherwise they will need to be added to
 # the setup_requires keyword.
 if TYPE_CHECKING:
-    from tensorlint import metadata
+    from pytropos import metadata
 else:
     metadata = imp.load_source(
         'metadata', os.path.join(CODE_DIRECTORY, 'metadata.py'))
@@ -276,11 +276,11 @@ setup_dict = dict(
     zip_safe=False,  # don't use eggs
     entry_points={
         'console_scripts': [
-            'tensorlint = tensorlint.main:entry_point'
+            'pytropos = pytropos.main:entry_point'
         ],
         # if you have a gui, use this
         # 'gui_scripts': [
-        #     'tensorlint_gui = tensorlint.gui:entry_point'
+        #     'pytropos_gui = pytropos.gui:entry_point'
         # ]
     }
 )

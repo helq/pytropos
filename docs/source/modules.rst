@@ -1,7 +1,7 @@
-tensorlint
-==========
+pytropos
+========
 
 .. toctree::
    :maxdepth: 4
 
-   tensorlint
+   pytropos

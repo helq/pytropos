@@ -1,8 +1,8 @@
 from pytest import raises
 import pytest
-from tensorlint import metadata
-from tensorlint.main import main
-from tensorlint.internals.errors import TypeCheckLogger
+from pytropos import metadata
+from pytropos.main import main
+from pytropos.internals.errors import TypeCheckLogger
 
 from typing import Any, Tuple
 from os import path
@@ -65,7 +65,7 @@ class TestMain(object):
         # (Note: this is an assertion to prevent a bug to be reintroduced)
         assert len(TypeCheckLogger().warnings) == 0
 
-        # import tensorlint.debug_print as debprint
+        # import pytropos.debug_print as debprint
         # with capsys.disabled():
         #     print(debprint.verbosity)
 

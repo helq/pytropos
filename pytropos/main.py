@@ -10,9 +10,9 @@ from types import CodeType
 import argparse
 import sys
 
-from tensorlint import metadata
-import tensorlint.debug_print as debug_print
-from tensorlint.debug_print import dprint, derror
+from pytropos import metadata
+import pytropos.debug_print as debug_print
+from pytropos.debug_print import dprint, derror
 
 import traceback
 
@@ -64,7 +64,7 @@ def main(argv: List[str]) -> int:
     # Highest level of verbosity is 3
     debug_print.verbosity = 3 if args_parsed.verbose > 3 else args_parsed.verbose
 
-    dprint("Starting tensorlint", verb=1)
+    dprint("Starting pytropos", verb=1)
 
     dprint("Parsing and un-parsing a python file (it should preserve all type comments)", verb=2)
 
@@ -80,7 +80,7 @@ def main(argv: List[str]) -> int:
                   file=sys.stderr)
             exit(1)
 
-    from tensorlint.translate import to_python_ast, TensorlintTransformer
+    from pytropos.translate import to_python_ast, PytroposTransformer
 
     file = args_parsed.file
     ast_: ast3.Module
@@ -91,7 +91,7 @@ def main(argv: List[str]) -> int:
         dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
         dprint(unparse(ast_), verb=2)
 
-    newast = TensorlintTransformer(file.name).visit(ast_)
+    newast = PytroposTransformer(file.name).visit(ast_)
 
     if debug_print.verbosity > 1:
         dprint("Modified file:", verb=2)
@@ -105,11 +105,11 @@ def main(argv: List[str]) -> int:
     # astpretty.pprint(newast_py)
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
 
-    from tensorlint.internals.errors import TypeCheckLogger
+    from pytropos.internals.errors import TypeCheckLogger
     exitcode = run_transformed_type_checking_code(newast_comp)
     TypeCheckLogger.clean_sing()
 
-    dprint("Closing tensorlint", verb=1)
+    dprint("Closing pytropos", verb=1)
 
     return exitcode
 
@@ -117,14 +117,14 @@ def main(argv: List[str]) -> int:
 def run_transformed_type_checking_code(newast_comp: CodeType) -> int:
     tl_globals = {}  # type: Dict[str, Any]
 
-    # from tensorlint.internals.tools import NonImplementedTL
-    from tensorlint.internals.errors import TypeCheckLogger
+    # from pytropos.internals.tools import NonImplementedTL
+    from pytropos.internals.errors import TypeCheckLogger
     try:
         # at the module level, locals and globals are the same
         # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
         exec(newast_comp, tl_globals)
     except Exception:
-        derror("Error: An error inside tensorlint has occurred, please open an issue in:")
+        derror("Error: An error inside pytropos has occurred, please open an issue in:")
         derror("  ", metadata.url)
         derror("Please run the code again with `-vvv` parameter")
 

@@ -1,6 +1,6 @@
-from tensorlint.internals.values.value import Any, Value
-from tensorlint.internals.values.builtin_values import Int, Float
-from tensorlint.internals.rules import congruent, unite
+from pytropos.internals.values.value import Any, Value
+from pytropos.internals.values.builtin_values import Int, Float
+from pytropos.internals.rules import congruent, unite
 
 import hypothesis.strategies as st
 from hypothesis import given

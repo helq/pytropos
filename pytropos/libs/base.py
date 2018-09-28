@@ -1,7 +1,7 @@
-from tensorlint.internals import Int, Iterable, Any
-from tensorlint.internals.tools import Pos
+from pytropos.internals import Int, Iterable, Any
+from pytropos.internals.tools import Pos
 
-from tensorlint.internals.values.function import MockFunction
+from pytropos.internals.values.function import MockFunction
 
 from typing import Optional
 

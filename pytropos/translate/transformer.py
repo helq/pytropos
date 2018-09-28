@@ -4,7 +4,7 @@ from typed_ast import ast3
 
 from .tools import AstAttributeUnknown
 
-__all__ = ['TensorlintTransformer']
+__all__ = ['PytroposTransformer']
 
 VisitorOutput = Union[List[ast3.AST], ast3.AST, None]
 
@@ -43,7 +43,7 @@ compopt = {
 
 
 def pos_as_tuple(node: ast3.expr) -> Optional[ast3.Tuple]:
-    # from tensorlint.translate.tools import pprint_ast_expr
+    # from pytropos.translate.tools import pprint_ast_expr
     # pprint_ast_expr(node)
     if not hasattr(node, 'lineno'):
         return None
@@ -60,7 +60,7 @@ def pos_as_tuple(node: ast3.expr) -> Optional[ast3.Tuple]:
     )
 
 
-class TensorlintTransformer(ast3.NodeTransformer):
+class PytroposTransformer(ast3.NodeTransformer):
     def __init__(self, filename: str) -> None:
         super().__init__()
         self.filename = filename
@@ -81,7 +81,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
             left_value = ast3.Attribute(node.target.value, node.target.attr, ast3.Load())
         else:
             raise AstAttributeUnknown(
-                "to_tensorlint: The left hand side of type '{}'"
+                "to_pytropos: The left hand side of type '{}'"
                 " inside an ast3.AugAssign is unknown to me".format(type(node.target)))
         new_target = self.visit(node.target)
         new_value = self.visit_BinOp(ast3.BinOp(
@@ -99,10 +99,10 @@ class TensorlintTransformer(ast3.NodeTransformer):
     def visit_Num(self, node: ast3.Num) -> VisitorOutput:
         if isinstance(node.n, (int, float)):
             attr = 'Int' if isinstance(node.n, int) else 'Float'
-            # converting num `n` to `tl.Int(int, node.n)`
+            # converting num `n` to `pt.Int(int, node.n)`
             new_v = ast3.Call(
                 func=ast3.Attribute(
-                    value=ast3.Name(id='tl', ctx=ast3.Load()),
+                    value=ast3.Name(id='pt', ctx=ast3.Load()),
                     attr=attr,
                     ctx=ast3.Load()),
                 args=[ast3.Num(n=node.n)], keywords=[])
@@ -113,7 +113,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
 
     def visit_Import(self, node: ast3.Import) -> VisitorOutput:
 
-        # Checking if the library being loaded is supported by tensorlint
+        # Checking if the library being loaded is supported by pytropos
         non_supported_modules: List[str] = []
         modules_supported:    List[Tuple[str, Optional[str]]] = []
         for alias in node.names:
@@ -124,19 +124,19 @@ class TensorlintTransformer(ast3.NodeTransformer):
                     alias.name if alias.asname is None else alias.asname
                 )
 
-        # Loading fake modules from tensorlint (if supported)
+        # Loading fake modules from pytropos (if supported)
         libs: List[ast3.AST] = []
         if len(modules_supported) > 0:
             libs.append(
                 ast3.Import(
-                    names=[ast3.alias(name='tensorlint.libs.'+name,
+                    names=[ast3.alias(name='pytropos.libs.'+name,
                                       asname=name if asname is None else asname)
                            for [name, asname] in modules_supported])
             )
             libs.extend(
                 ast3.parse(  # type: ignore
                     '\n'.join([
-                        "vau['{name}'] = tl.Module({name}, '{name}')".format(
+                        "vau['{name}'] = pt.Module({name}, '{name}')".format(
                             name=name if asname is None else asname
                         )
                         for name, asname in modules_supported
@@ -149,7 +149,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
             libs.extend(
                 ast3.parse(  # type: ignore
                     '\n'.join([
-                        "vau['{name}'] = tl.Any()".format(name=name)
+                        "vau['{name}'] = pt.Any()".format(name=name)
                         for name in non_supported_modules
                     ])
                 ).body
@@ -162,20 +162,20 @@ class TensorlintTransformer(ast3.NodeTransformer):
         return libs
 
     def visit_For(self, node: ast3.For) -> VisitorOutput:
-        # converting `for i in range(10)` into `with for_loop(range(10)) as (i, tl)`
+        # converting `for i in range(10)` into `with for_loop(range(10)) as (i, pt)`
         new_iter = self.visit(node.iter)
         new_target = self.visit(node.target)
         new_body = [self.visit(stmt) for stmt in node.body]
         # TODO(helq): take into account orelse body
         if len(node.orelse) > 0:
             raise AstAttributeUnknown(
-                "`else` statement on a for loop hasn't been yet defined in tensorlint, I'm sorry")
+                "`else` statement on a for loop hasn't been yet defined in pytropos, I'm sorry")
         new_node = ast3.With(
             items=[
                 ast3.withitem(
                     context_expr=ast3.Call(
                         func=ast3.Attribute(
-                            value=ast3.Name(id='tl', ctx=ast3.Load()),
+                            value=ast3.Name(id='pt', ctx=ast3.Load()),
                             attr='for_loop',
                             ctx=ast3.Load()),
                         args=[new_iter],
@@ -188,7 +188,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
     def visit_Compare(self, node: ast3.Compare) -> VisitorOutput:
         # Converting a binary operation `5 + a` into a function call
         # with an additional parameter `src_pos`:
-        # tl.add(5, a, src_pos=(20, 5))
+        # pt.add(5, a, src_pos=(20, 5))
         assert len(node.ops) == 1, "More than one comparison has been implemented"
         self.generic_visit(node)
 
@@ -202,7 +202,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
 
         new_v = ast3.Call(
             func=ast3.Attribute(
-                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                value=ast3.Name(id='pt', ctx=ast3.Load()),
                 attr=op_str,
                 ctx=ast3.Load()),
             args=[
@@ -221,7 +221,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
     def visit_BinOp(self, node: ast3.BinOp) -> VisitorOutput:
         # Converting a binary operation `5 + a` into a function call
         # with an additional parameter `src_pos`:
-        # tl.add(5, a, src_pos=(20, 5))
+        # pt.add(5, a, src_pos=(20, 5))
         self.generic_visit(node)
         op_type = type(node.op)
         if op_type not in operations:
@@ -233,7 +233,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
 
         new_v = ast3.Call(
             func=ast3.Attribute(
-                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                value=ast3.Name(id='pt', ctx=ast3.Load()),
                 attr=op_str,
                 ctx=ast3.Load()),
             args=[
@@ -294,11 +294,11 @@ class TensorlintTransformer(ast3.NodeTransformer):
         # into:
         #
         # > def function(fun, *args):
-        # >   vau1 = tl.Vault(vau)
+        # >   vau1 = pt.Vault(vau)
         # >   vau1.add_locals('i', 'x')
         # >   fun.load_args(vau1, args)
-        # >   return tl.add(vau1['i'], vau1['x'])
-        # > vau['myfun'] = tl.DefFunction(function, None, ('i', 'x'))
+        # >   return pt.add(vau1['i'], vau1['x'])
+        # > vau['myfun'] = pt.DefFunction(function, None, ('i', 'x'))
         #
 
         # TODO(helq): (IMPORTANT) create function to detect nonlocal variables, local
@@ -312,12 +312,12 @@ class TensorlintTransformer(ast3.NodeTransformer):
         inside_vau = self.vau_name
 
         new_body: List[ast3.stmt] = [
-            # vau1 = tl.Vault(vau)
+            # vau1 = pt.Vault(vau)
             ast3.Assign(
                 targets=[ast3.Name(id=inside_vau, ctx=ast3.Store())],
                 value=ast3.Call(
                     func=ast3.Attribute(
-                        value=ast3.Name(id='tl', ctx=ast3.Load()),
+                        value=ast3.Name(id='pt', ctx=ast3.Load()),
                         attr='Vault',
                         ctx=ast3.Load(),
                     ),
@@ -391,7 +391,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
                 decorator_list=new_decorator_list,
                 returns=None,
             ),
-            # vau['myfun'] = tl.DefFunction(function, None, ('i', 'x'))
+            # vau['myfun'] = pt.DefFunction(function, None, ('i', 'x'))
             ast3.Assign(
                 targets=[
                     ast3.Subscript(
@@ -404,7 +404,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
                 ],
                 value=ast3.Call(
                     func=ast3.Attribute(
-                        value=ast3.Name(id='tl', ctx=ast3.Load()),
+                        value=ast3.Name(id='pt', ctx=ast3.Load()),
                         attr='DefFunction',
                         ctx=ast3.Load(),
                     ),
@@ -447,11 +447,11 @@ class TensorlintTransformer(ast3.NodeTransformer):
         self.generic_visit(node)
         node.body = (
             ast3.parse(  # type: ignore
-                'import tensorlint as tl\n'
-                # 'tl.Any.error_when_used = True\n'
-                'import tensorlint.libs.base\n'
-                'vau = tl.Vault()\n'
-                'vau.load_module(tensorlint.libs.base, "__builtins__")\n'
+                'import pytropos as pt\n'
+                # 'pt.Any.error_when_used = True\n'
+                'import pytropos.libs.base\n'
+                'vau = pt.Vault()\n'
+                'vau.load_module(pytropos.libs.base, "__builtins__")\n'
                 'fn = {}\n'.format(repr(self.filename))
             ).body +
             node.body
@@ -517,7 +517,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
     def visit_NameConstant(self, node: ast3.NameConstant) -> VisitorOutput:
         return ast3.Call(
             func=ast3.Attribute(
-                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                value=ast3.Name(id='pt', ctx=ast3.Load()),
                 attr='Bool',
                 ctx=ast3.Load(),
             ),
@@ -551,7 +551,7 @@ class TensorlintTransformer(ast3.NodeTransformer):
     def visit_Str(self, node: ast3.Str) -> VisitorOutput:
         return ast3.Call(
             func=ast3.Attribute(
-                value=ast3.Name(id='tl', ctx=ast3.Load()),
+                value=ast3.Name(id='pt', ctx=ast3.Load()),
                 attr='Str',
                 ctx=ast3.Load(),
             ),

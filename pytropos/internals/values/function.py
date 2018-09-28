@@ -1,7 +1,7 @@
 import typing as ty
 # from typing import Optional
 
-# from tensorlint.internals.tools import Pos
+# from pytropos.internals.tools import Pos
 
 from .value import Value
 

@@ -7,7 +7,7 @@ __all__ = ['Value', 'Any']
 # TODO(helq): add `get` method to simulate access to member values like, num.some.var
 class Value(object):
     """
-    All variables in tensorlint must derivate from `Value`. `Value` is just like `object`
+    All variables in pytropos must derivate from `Value`. `Value` is just like `object`
     for all objects in python.
     """
 

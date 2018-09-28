@@ -6,11 +6,11 @@ from hypothesis import given
 from typed_ast import ast3
 # import typing as ty
 
-from tensorlint.translate import TensorlintTransformer
+from pytropos.translate import PytroposTransformer
 
-import tensorlint.hypothesis_strategies.typed_ast as st_ast
+import pytropos.hypothesis_strategies.typed_ast as st_ast
 
-trans = TensorlintTransformer("<file>")
+trans = PytroposTransformer("<file>")
 
 
 class TestTransformations(object):
@@ -22,4 +22,4 @@ class TestTransformations(object):
         assert isinstance(new_ast, ast3.Call)
         assert isinstance(new_ast.func, ast3.Attribute)
         assert isinstance(new_ast.func.value, ast3.Name)
-        assert new_ast.func.value.id == 'tl'
+        assert new_ast.func.value.id == 'pt'

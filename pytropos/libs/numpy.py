@@ -1,14 +1,14 @@
 import typing as ty
 from typing import Optional, Type
 
-from tensorlint.internals.values.value import Value
-from tensorlint.internals import Any, Int
-from tensorlint.internals.operations.base import add_ops_to_global
-from tensorlint.internals.errors import TypeCheckLogger
-from tensorlint.internals.tools import NonImplementedTL, Pos
-from tensorlint.internals.rules import congruent
+from pytropos.internals.values.value import Value
+from pytropos.internals import Any, Int
+from pytropos.internals.operations.base import add_ops_to_global
+from pytropos.internals.errors import TypeCheckLogger
+from pytropos.internals.tools import NonImplementedTL, Pos
+from pytropos.internals.rules import congruent
 
-from tensorlint.internals.values.function import MockFunction
+from pytropos.internals.values.function import MockFunction
 
 __all__ = ['zeros', 'ones', 'dot', 'float32', 'float64']
 

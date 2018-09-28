@@ -14,7 +14,7 @@ from .cell import Cell
 
 from ..tools import Pos
 
-import tensorlint.internals.operations.unitary as unitary
+import pytropos.internals.operations.unitary as unitary
 
 __all__ = ['Vault', 'DefFunction', 'Module']
 

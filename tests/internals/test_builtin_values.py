@@ -2,10 +2,10 @@
 
 from tools import almost_any_value
 
-from tensorlint.internals.values.builtin_values import Int, Float, Bool
-from tensorlint.internals.values.value import Any, Value
-from tensorlint.internals.errors import TypeCheckLogger
-from tensorlint.internals.tools import Pos
+from pytropos.internals.values.builtin_values import Int, Float, Bool
+from pytropos.internals.values.value import Any, Value
+from pytropos.internals.errors import TypeCheckLogger
+from pytropos.internals.tools import Pos
 
 import re
 
@@ -13,8 +13,8 @@ from pytest import raises
 from hypothesis import given
 import hypothesis.strategies as st
 
-import tensorlint.internals.operations.base as tlo
-import tensorlint.internals.operations.unitary as unitary
+import pytropos.internals.operations.base as tlo
+import pytropos.internals.operations.unitary as unitary
 import operator as ops
 import math
 

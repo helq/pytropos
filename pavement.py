@@ -134,7 +134,7 @@ def run(args: List[str]) -> None:
     # executable. So we just pass the package name in as the executable name,
     # since it's close enough. This should never be seen by an end user
     # installing through Setuptools anyway.
-    from tensorlint.main import main
+    from pytropos.main import main
     raise SystemExit(main([CODE_DIRECTORY] + args))
 
 

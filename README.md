@@ -1,19 +1,116 @@
-Tensorlint
-==========
+# Pytropos #
 
-Experimental python linter to check for correctness of tensor/matrix/arrays operations
-used by different libraries.
+Experimental python linter/interpreter to check for correctness of tensor/matrix/arrays
+operations used in numpy.
 
-Currently it does nothing useful. Come back when it does something ;)
+Currently it does nothing particularly useful (it handles just a couple of cases). Please,
+check this page out periodically, Pytropos will eventually do something useful.
 
-Why is this all written in python 3.6
--------------------------------------
+## What is this? ##
 
-It's time people to move on! Python 2 is an amazing tool, but it's already several years
-old, and soon it will deprecated.
+Pytropos is a Python 3 (pseudo)Interpreter/Linter/Static Analyser based on the ideas of
+Reflection (Ortin et al., 2015), Gradual Typing (Siek and Taha, 2006), and Abstract
+Domains (from Abstract Interpretation (Cousot and Radhia, 1977)).
 
-Development
------------
+Once you've installed Pytropos, you can check a python file with `pytropos <file>` (or
+`paver run <file>` in development mode).
+
+Pytropos follows the execution model of Python but all interactions with the user and
+world are faked. The only thing Pytropos prints is a list of warnings. A warning is
+a Python Exception that Pytropos found when running the code. The Exception is warrantied
+to (eventually) happen if the code is run in the regular Python interpreter.
+
+The following piece of code is warrantied to fail in Python 3:
+
+~~~python
+i = 3
+x = 0.0
+y = i / x  # division by zero
+x += y - i
+print(x)
+~~~
+
+Running the code in Pytropos gives us:
+
+    > pytropos excode.py
+    excode.py:3:4: E001 ZeroDivisionError: float division by zero
+
+The main idea is for Pytropos to be able to catch this and many other errors that could
+happen when a piece of code is run.
+
+A more complex (working) example:
+
+~~~python
+import numpy as np
+
+a = np.zeros( (10,6) )
+
+m = 4 + 1
+n = 0 + 2
+
+if m == 5:
+    n = 1
+else:
+    m = 6
+
+b = np.ones( (m,n) )
+res = np.dot(a, b)  # fails here
+
+print(res)
+
+var = True
+
+if var:
+    b = np.zeros( (3, 11) )
+    res = np.dot(b, a)  # fails here
+
+print(res)
+~~~
+
+and pytropos detects there's an error in the shape of some `numpy` arrays and informs us.
+
+    > pytropos excode2.py
+    excode2.py:14:6: E504 6 != 5. Matrices are not compatible for multiplication. The second dimension of the first array `6` isn't equal to the first dimension of the second array `5`
+    excode2.py:22:10: E504 11 != 10. Matrices are not compatible for multiplication. The second dimension of the first array `11` isn't equal to the first dimension of the second array `10`
+
+
+### The Plan ###
+
+The plan is to support a moderate amount of Python characteristics (variables, functions,
+if branching, loops, tuples, lists, and a few others) together with the implementation of
+a mock/fake numpy library.
+
+### ToDo List ###
+
+- [x] Basic support of `int`, `float` and `bool` variables, and their operations (An
+      abstract domain definition)
+- [x] Handling of undefined, local, nonlocal, and global variables
+- [ ] Handling nondeterminism inside an `if` branch (what if we don't know the truth value
+      of the question made to `if`) (almost complete)
+- [ ] Basic support of `numpy` arrays (in progress)
+- [x] Basic Function support (only `*args`)
+- [ ] Basic support for `list`s
+- [ ] Basic support for `tuple`s
+- [ ] Basic support of `numpy` operations (addition, multiplication, ... requires checking
+      broadcasting)
+- [ ] Basic support for `class`es (objects are consider all immutable)
+- [ ] Full Function support (`*args`, `**kargs`, `kwonlyargs` and other stuff)
+- [ ] Full support of `int`, `float` and `bool` variables, and their operations
+- [ ] Full support of a subset `numpy` functions
+
+## Why is this all written in python 3.6? ##
+
+Pytropos only works with Python 3.6 or newer. But, why not Python 2?
+
+It's time people to move on! Python 2 is an amazing tool, but it was announced some many
+years now that the core team will stop supporting it in some years. Now we have Python 3,
+but it seems that too much code is still written to work in Python 2 too, which means that
+we cannot write in the style of Python 3. Well, let's move on.
+
+PS: supporting two Python versions is a lot of work! Python 2 and Python 3 differ in a lot
+of subtle ways: scopes, primitive data types, behaivour of builtin functions, ...
+
+## Development ##
 
 Create and enter enviroment:
 
@@ -26,8 +123,7 @@ Install requirements:
     pip install -r git_requirements.txt
     pip install argparse
 
-Run tests
----------
+## Run tests ##
 
     paver test_all
 
@@ -42,9 +138,23 @@ To see test coverage of code:
 
     paver coverage
 
-Contributing
-------------
+## Contributing ##
 
 This project is part of the work for my master thesis.
 
 You're welcome to help, I'll be glad to hear some other voices about this project.
+
+## References ##
+
+Ortin, Francisco, J. Baltasar G. Perez-Schofield, and Jose M. Redondo. 2015. "Towards a
+  Static Type Checker for Python." In European Conference on Object-Oriented Programming
+  (ECOOP), Scripts to Programs Workshop, STOP, 15:1–2.
+
+Siek, Jeremy G., and Walid Taha. 2006. "Gradual Typing for Functional Languages." In
+  Scheme and Functional Programming Workshop, 6:81–92.
+
+Cousot, Patrick, and Radhia Cousot. 1977. "Abstract Interpretation: A Unified Lattice
+  Model for Static Analysis of Programs by Construction or Approximation of Fixpoints." In
+  Proceedings of the 4th ACM SIGACT-SIGPLAN Symposium on Principles of Programming
+  Languages, 238–252. POPL ’77. New York, NY, USA: ACM.
+  https://doi.org/10.1145/512950.512973.

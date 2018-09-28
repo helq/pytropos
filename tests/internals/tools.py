@@ -1,5 +1,5 @@
-from tensorlint.internals.values.builtin_values import Int, Float, Str, Bool
-from tensorlint.internals.values.value import Any
+from pytropos.internals.values.builtin_values import Int, Float, Str, Bool
+from pytropos.internals.values.value import Any
 
 import hypothesis.strategies as st
 

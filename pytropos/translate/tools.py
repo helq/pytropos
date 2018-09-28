@@ -7,7 +7,7 @@ from typing import Union
 __all__ = ["AstAttributeUnknown", 'pprint_ast_expr', 'to_python_ast']
 
 # trick, use:
-# > from tensorlint.translate.tools import pprint_ast_expr
+# > from pytropos.translate.tools import pprint_ast_expr
 # > pprint_ast_expr('expr')
 # to get how to write by hand a part of the tree (AST)
 # The only problem is that no comment type information is preserved, for this, better use:

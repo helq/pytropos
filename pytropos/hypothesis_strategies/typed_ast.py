@@ -300,7 +300,7 @@ if __name__ == '__main__':
     # ex = arg.example()
     # ex = arguments().example()
     ex = FunctionDef(expr, stmt).example()
-    from tensorlint.translate.tools import pprint_ast_expr
+    from pytropos.translate.tools import pprint_ast_expr
     pprint_ast_expr(ex)
     from typed_astunparse import unparse
     print(unparse(ex))
