@@ -61,10 +61,14 @@ def pos_as_tuple(node: ast3.expr) -> Optional[ast3.Tuple]:
 
 
 class PytroposTransformer(ast3.NodeTransformer):
-    def __init__(self, filename: str) -> None:
+    def __init__(self,
+                 filename: str,
+                 cursorline: Optional[int] = None
+                 ) -> None:
         super().__init__()
         self.filename = filename
         self.scope_level = 0
+        self.cursorline = cursorline
 
     @property
     def vau_name(self) -> str:
@@ -72,6 +76,38 @@ class PytroposTransformer(ast3.NodeTransformer):
             return 'vau{}'.format(self.scope_level)
         else:
             return 'vau'
+
+    @property
+    def show_expr(self) -> ast3.Expr:
+        return ast3.Expr(
+            value=ast3.Call(
+                func=ast3.Attribute(
+                    value=ast3.Name(id=self.vau_name, ctx=ast3.Load()),
+                    attr='show_interior', ctx=ast3.Load(),
+                ),
+                args=[], keywords=[])
+        )
+
+    def visit(self, node: ast3.AST) -> VisitorOutput:
+        if isinstance(node, ast3.stmt):
+            return self.visit_stmt(node)
+        else:
+            return super().visit(node)  # type: ignore
+
+    def visit_stmt(self, node: ast3.stmt) -> VisitorOutput:
+        isinline = self.cursorline is not None \
+            and hasattr(node, "lineno") \
+            and self.cursorline == node.lineno
+        visited = super().visit(node)  # type: VisitorOutput
+        if isinline:
+            if isinstance(visited, list):
+                return [self.show_expr] + visited  # type: ignore
+            elif visited is None:
+                return [self.show_expr]
+            # elif isinstance(visited, ast3.AST):
+            else:
+                return [self.show_expr, visited]
+        return visited
 
     def visit_AugAssign(self, node: ast3.AugAssign) -> VisitorOutput:
         op = type(node.op)
@@ -362,7 +398,13 @@ class PytroposTransformer(ast3.NodeTransformer):
             )
         )
 
-        new_body.extend([self.visit(stmt) for stmt in node.body])
+        for stmt in node.body:
+            new_stmt = self.visit(stmt)
+            if isinstance(new_stmt, list):
+                new_body.extend(new_stmt)  # type: ignore
+            elif isinstance(new_stmt, ast3.AST):
+                new_body.append(new_stmt)  # type: ignore
+
         new_decorator_list = [self.visit(expr) for expr in node.decorator_list]
 
         # TODO(helq): Improve capture of args, there may be many types of them
@@ -444,6 +486,11 @@ class PytroposTransformer(ast3.NodeTransformer):
             ctx=node.ctx)
 
     def visit_Module(self, node: ast3.Module) -> VisitorOutput:
+        cursorline_at_end = \
+            self.cursorline is not None \
+            and len(node.body) > 0 \
+            and node.body[-1].lineno < self.cursorline
+
         self.generic_visit(node)
         node.body = (
             ast3.parse(  # type: ignore
@@ -456,6 +503,8 @@ class PytroposTransformer(ast3.NodeTransformer):
             ).body +
             node.body
         )
+        if cursorline_at_end:
+            node.body.append(self.show_expr)
         return node
 
     def visit_If(self, node: ast3.If) -> VisitorOutput:

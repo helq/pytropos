@@ -338,6 +338,14 @@ class Vault(object):
         for var in mod.exported_vars:
             self[var] = mod.get[var]
 
+    def show_interior(self) -> None:
+        if not self._global:
+            locals_ = {k: v.raw_content for k, v in self._locals_cells.items()}
+            nonlocals = {k: self._nonlocals_cells[k] for k in self._nonlocals}
+            print("Local variables: {}".format(locals_))
+            print("Nonlocal variables: {}".format(nonlocals))
+        print("Global variables: {}".format(self._global_scope))
+
 
 class Module(Value):
     def __init__(self, mod: ModuleType, name: str) -> None:

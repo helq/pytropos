@@ -4,7 +4,7 @@
 from __future__ import print_function
 
 from typing import List
-from typing import Dict, Any  # noqa: F401
+from typing import Dict, Any, Optional  # noqa: F401
 from types import CodeType
 
 import argparse
@@ -55,11 +55,20 @@ def main(argv: List[str]) -> int:
     )
 
     arg_parser.add_argument(
+        '-c', '--check-line',
+        type=int,
+        default=None,
+        help="Checks the values at a specific line in the code"
+    )
+
+    arg_parser.add_argument(
         'file',
         type=argparse.FileType('r'),
         help='File to analyse')
 
     args_parsed = arg_parser.parse_args(args=argv[1:])
+
+    check_line = args_parsed.check_line  # type: Optional[int]
 
     # Highest level of verbosity is 3
     debug_print.verbosity = 3 if args_parsed.verbose > 3 else args_parsed.verbose
@@ -91,7 +100,8 @@ def main(argv: List[str]) -> int:
         dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
         dprint(unparse(ast_), verb=2)
 
-    newast = PytroposTransformer(file.name).visit(ast_)
+    newast: ast3.Module
+    newast = PytroposTransformer(file.name, check_line).visit(ast_)  # type: ignore
 
     if debug_print.verbosity > 1:
         dprint("Modified file:", verb=2)
