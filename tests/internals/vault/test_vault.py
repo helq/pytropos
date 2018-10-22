@@ -36,11 +36,11 @@ class TestVault(object):
         newast_py = ast.fix_missing_locations(to_python_ast(newast))
         newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
 
-        tl_globals: Dict[str, Any] = {}
-        exec(newast_comp, tl_globals)
-        assert 'vau' in tl_globals
+        pt_globals: Dict[str, Any] = {}
+        exec(newast_comp, pt_globals)
+        assert 'vau' in pt_globals
 
-        vau: Vault = tl_globals['vau']
+        vau: Vault = pt_globals['vau']
 
         if i_value is None:
             assert 'i' not in vau

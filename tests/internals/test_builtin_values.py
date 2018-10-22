@@ -13,7 +13,7 @@ from pytest import raises
 from hypothesis import given
 import hypothesis.strategies as st
 
-import pytropos.internals.operations.base as tlo
+import pytropos.internals.operations.base as pto
 import pytropos.internals.operations.unitary as unitary
 import operator as ops
 import math
@@ -37,7 +37,7 @@ valueError = re.compile('ValueError')
 
 def get_ops(ls: ty.List[str]) -> ty.List[ty.Tuple[ty.Any, ty.Any]]:
     return [
-        (getattr(ops, op), getattr(tlo, op))
+        (getattr(ops, op), getattr(pto, op))
         for op in ls
     ]
 
@@ -239,21 +239,21 @@ class TestIntFloat(object):
         val2 = Int(j) if isinstance(j, int) else Float(j)
 
         if i is not None and j is not None:
-            new_val1 = tlo.pow(val1, val2)  # type: ignore
+            new_val1 = pto.pow(val1, val2)  # type: ignore
             if isinstance(new_val1, Any):
                 assert len(TypeCheckLogger().warnings) == 1
             else:
                 assert ops.pow(i, j) == new_val1.n
                 assert len(TypeCheckLogger().warnings) == 0
 
-            new_val2 = tlo.pow(val2, val1)  # type: ignore
+            new_val2 = pto.pow(val2, val1)  # type: ignore
             if isinstance(new_val2, Any):
                 assert len(TypeCheckLogger().warnings) > 0
             else:
                 assert ops.pow(j, i) == new_val2.n
         else:
-            assert isinstance(tlo.pow(val1, val2).n, Any)  # type: ignore
-            assert isinstance(tlo.pow(val2, val1).n, Any)  # type: ignore
+            assert isinstance(pto.pow(val1, val2).n, Any)  # type: ignore
+            assert isinstance(pto.pow(val2, val1).n, Any)  # type: ignore
 
     @given(ints_bools_st,
            st.one_of(st.integers(min_value=-2000, max_value=2000), st.none()))
@@ -261,8 +261,8 @@ class TestIntFloat(object):
             self, i: Union[Int, Bool], j: Optional[int]) -> None:
         TypeCheckLogger.clean_sing()
 
-        new_val1 = tlo.lshift(i, Int(j))  # type: ignore
-        new_val2 = tlo.rshift(i, Int(j))  # type: ignore
+        new_val1 = pto.lshift(i, Int(j))  # type: ignore
+        new_val2 = pto.rshift(i, Int(j))  # type: ignore
 
         if i.n is None or j is None:
             assert new_val1.n is None
@@ -297,7 +297,7 @@ class TestIntFloat(object):
     def check_Bool_out_of_eq_operation_ints(
             self, i: Int, j: Int
     ) -> None:
-        res = tlo.eq(i, j)  # type: ignore
+        res = pto.eq(i, j)  # type: ignore
         assert isinstance(res, Bool)
         if i.n is None or j.n is None:
             assert res.n is None
@@ -309,7 +309,7 @@ class TestIntFloat(object):
         val1 = Int(i) if isinstance(i, int) else Float(i)
         val2 = Int(j) if isinstance(j, int) else Float(j)
 
-        res = tlo.eq(val1, val2)  # type: ignore
+        res = pto.eq(val1, val2)  # type: ignore
         assert not isinstance(res, Any)
         assert res.n == (i == j)
 

@@ -142,9 +142,9 @@ class BinRules(object):
 
     def extractRulesFromClass(self, klass: ty.Type) -> ty.Type:
         for rule_name in self._rules:
-            rule_name_in_tl = rule_name.strip('_') + '_op'
-            if rule_name_in_tl in dir(klass):
-                self.addRule(rule_name, klass, getattr(klass, rule_name_in_tl))
+            rule_name_in_pt = rule_name.strip('_') + '_op'
+            if rule_name_in_pt in dir(klass):
+                self.addRule(rule_name, klass, getattr(klass, rule_name_in_pt))
         return klass
 
 
@@ -200,9 +200,9 @@ class UniRules(object):
 
     def extractRulesFromClass(self, klass: ty.Type) -> ty.Type:
         for rule_name in self._rules:
-            rule_name_in_tl = rule_name.strip('_') + '_op'
-            if rule_name_in_tl in dir(klass):
-                self.addRule(rule_name, klass, getattr(klass, rule_name_in_tl))
+            rule_name_in_pt = rule_name.strip('_') + '_op'
+            if rule_name_in_pt in dir(klass):
+                self.addRule(rule_name, klass, getattr(klass, rule_name_in_pt))
         return klass
 
 

@@ -5,7 +5,7 @@ from pytropos.internals.values.value import Value
 from pytropos.internals import Any, Int
 from pytropos.internals.operations.base import add_ops_to_global
 from pytropos.internals.errors import TypeCheckLogger
-from pytropos.internals.tools import NonImplementedTL, Pos
+from pytropos.internals.tools import NonImplementedPT, Pos
 from pytropos.internals.rules import congruent
 
 from pytropos.internals.values.function import MockFunction
@@ -50,7 +50,7 @@ class ndarray(Value):
                     "NOIDEA",
                     "The shapes can't be united, they are not the same",
                     src_pos)
-                raise NonImplementedTL("`tensor.__add__` hasn't been completely implemented yet")
+                raise NonImplementedPT("`tensor.__add__` hasn't been completely implemented yet")
             return ndarray(new_shape, new_type)
         else:
             return NotImplemented
@@ -148,7 +148,7 @@ def dot(vall: Value,
                         src_pos)
                     return ndarray(None, None)
         else:
-            raise NonImplementedTL(
+            raise NonImplementedPT(
                 "`numpy.dot` hasn't been implemented for tensors of different types yet :(")
     else:
         TypeCheckLogger().new_warning(

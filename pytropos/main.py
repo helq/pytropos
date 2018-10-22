@@ -125,14 +125,14 @@ def main(argv: List[str]) -> int:
 
 
 def run_transformed_type_checking_code(newast_comp: CodeType) -> int:
-    tl_globals = {}  # type: Dict[str, Any]
+    pt_globals = {}  # type: Dict[str, Any]
 
-    # from pytropos.internals.tools import NonImplementedTL
+    # from pytropos.internals.tools import NonImplementedPT
     from pytropos.internals.errors import TypeCheckLogger
     try:
         # at the module level, locals and globals are the same
         # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
-        exec(newast_comp, tl_globals)
+        exec(newast_comp, pt_globals)
     except Exception:
         derror("Error: An error inside pytropos has occurred, please open an issue in:")
         derror("  ", metadata.url)
@@ -142,13 +142,13 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> int:
         derror(TypeCheckLogger(), verb=2)
 
         derror("\nValue of variables at the moment of the failure:", metadata.url, verb=2)
-        derror(tl_globals['vau'], end='\n\n', verb=2)
+        derror(pt_globals['vau'], end='\n\n', verb=2)
 
         traceback.print_exc()
         return 2
 
     derror("\nLast computed variables values (vault):", verb=2)
-    derror(tl_globals['vau'], end='\n\n', verb=2)
+    derror(pt_globals['vau'], end='\n\n', verb=2)
 
     if len(TypeCheckLogger().warnings) > 0:
         derror(TypeCheckLogger())

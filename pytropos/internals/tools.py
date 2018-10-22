@@ -1,12 +1,12 @@
 from typing import Dict, Type, Any  # noqa: F401
 from typing import Tuple, Optional
 
-__all__ = ['NonImplementedTL', 'Singleton', 'Pos']
+__all__ = ['NonImplementedPT', 'Singleton', 'Pos']
 
 Pos = Tuple[Optional[Tuple[int, int]], str]
 
 
-class NonImplementedTL(Exception):
+class NonImplementedPT(Exception):
     pass
 
 

@@ -35,10 +35,10 @@ class DefFunction(Function):
         # nonlocals of that function:
         # def myfun():
         #   def function(*args, **kargs):
-        #     vau1 = tl.Vault(vau)
+        #     vau1 = pt.Vault(vau)
         #     vau1.add_locals('i', 'x')
         #     vau1.load_args(args, kargs)
-        #     return tl.add(vau1['i'], vau1['x'])
+        #     return pt.add(vau1['i'], vau1['x'])
         #   return function, None, ('i', 'x')
         #
         # From:
