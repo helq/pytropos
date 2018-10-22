@@ -190,8 +190,10 @@ class Vault(object):
         if not self._global:
             if key in self._nonlocals_cells:
                 self._nonlocals_cells[key].content = value
+                return
             elif key in self._locals_cells:
                 self._locals_cells[key].content = value
+                return
         self._global_scope[key] = value
 
     def __delitem__(self, key_: Union[str, Tuple[str, Pos]]) -> None:
@@ -202,7 +204,7 @@ class Vault(object):
             key, src_pos = key_
 
         if not self._global:
-            if key in self._nonlocals_cells:
+            if key in self._locals_cells:
                 if self._locals_cells[key].is_there_something:
                     del self._locals_cells[key].content
                 else:
@@ -211,7 +213,8 @@ class Vault(object):
                         "The local variable `{}` has been already deleted".format(key),
                         src_pos
                     )
-            elif key in self._locals_cells:
+                return
+            elif key in self._nonlocals_cells:
                 if self._nonlocals_cells[key].is_there_something:
                     del self._nonlocals_cells[key].content
                 else:
@@ -220,6 +223,7 @@ class Vault(object):
                         "The nonlocal variable `{}` has been already deleted".format(key),
                         src_pos
                     )
+                return
         if key in self._global_scope:
             del self._global_scope[key]
         else:
@@ -228,6 +232,9 @@ class Vault(object):
                 "Global variable `{}` isn't set".format(key),
                 src_pos
             )
+
+    def __contains__(self, item: str) -> bool:
+        return item in self._global_scope
 
     def __repr__(self) -> str:
         return (
