@@ -71,18 +71,11 @@ class PytroposTransformer(ast3.NodeTransformer):
         self.cursorline = cursorline
 
     @property
-    def vau_name(self) -> str:
-        if self.scope_level > 0:
-            return 'vau{}'.format(self.scope_level)
-        else:
-            return 'vau'
-
-    @property
     def show_expr(self) -> ast3.Expr:
         return ast3.Expr(
             value=ast3.Call(
                 func=ast3.Attribute(
-                    value=ast3.Name(id=self.vau_name, ctx=ast3.Load()),
+                    value=ast3.Name(id='vau', ctx=ast3.Load()),
                     attr='show_interior', ctx=ast3.Load(),
                 ),
                 args=[], keywords=[])
@@ -289,8 +282,10 @@ class PytroposTransformer(ast3.NodeTransformer):
         # converting:
         # > afun(3)
         # into:
-        # afun.call(3, src_pos=...)
+        # afun.call((3,), vau, src_pos=...)
         self.generic_visit(node)
+
+        args_ = ast3.Tuple(elts=node.args, ctx=ast3.Load())
 
         return ast3.Call(
             func=ast3.Attribute(
@@ -298,7 +293,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                 attr='call',
                 ctx=ast3.Load(),
             ),
-            args=node.args,
+            args=[args_, ast3.Name(id='vau', ctx=ast3.Load())],
             keywords=node.keywords + [
                 ast3.keyword(
                     arg='src_pos',
@@ -329,11 +324,8 @@ class PytroposTransformer(ast3.NodeTransformer):
         #
         # into:
         #
-        # > def function(fun, *args):
-        # >   vau1 = pt.Vault(vau)
-        # >   vau1.add_locals('i', 'x')
-        # >   fun.load_args(vau1, args)
-        # >   return pt.add(vau1['i'], vau1['x'])
+        # > def function(vau):
+        # >   return pt.add(vau['i'], vau['x'])
         # > vau['myfun'] = pt.DefFunction(function, None, ('i', 'x'))
         #
 
@@ -341,62 +333,10 @@ class PytroposTransformer(ast3.NodeTransformer):
         # variables and global variables
         nonlocal_vars = []  # type: List[str]
 
-        outside_vau = self.vau_name
-
         self.scope_level += 1
 
-        inside_vau = self.vau_name
-
-        new_body: List[ast3.stmt] = [
-            # vau1 = pt.Vault(vau)
-            ast3.Assign(
-                targets=[ast3.Name(id=inside_vau, ctx=ast3.Store())],
-                value=ast3.Call(
-                    func=ast3.Attribute(
-                        value=ast3.Name(id='pt', ctx=ast3.Load()),
-                        attr='Vault',
-                        ctx=ast3.Load(),
-                    ),
-                    args=[ast3.Name(id=outside_vau, ctx=ast3.Load())],
-                    keywords=[],
-                ),
-            ),
-        ]
-
+        new_body: List[ast3.stmt] = []
         arg_names = [arg.arg for arg in node.args.args]
-        if len(arg_names) > 0:
-            new_body.append(
-                # vau1.add_locals('i', 'x')
-                ast3.Expr(
-                    value=ast3.Call(
-                        func=ast3.Attribute(
-                            value=ast3.Name(id=inside_vau, ctx=ast3.Load()),
-                            attr='add_locals',
-                            ctx=ast3.Load(),
-                        ),
-                        args=[ast3.Str(s=arg) for arg in arg_names],
-                        keywords=[],
-                    ),
-                )
-            )
-
-        new_body.append(
-            # fun.load_args(vau1, args)
-            ast3.Expr(
-                value=ast3.Call(
-                    func=ast3.Attribute(
-                        value=ast3.Name(id='fun', ctx=ast3.Load()),
-                        attr='load_args',
-                        ctx=ast3.Load(),
-                    ),
-                    args=[
-                        ast3.Name(id=inside_vau, ctx=ast3.Load()),
-                        ast3.Name(id='args', ctx=ast3.Load()),
-                    ],
-                    keywords=[],
-                ),
-            )
-        )
 
         for stmt in node.body:
             new_stmt = self.visit(stmt)
@@ -422,8 +362,8 @@ class PytroposTransformer(ast3.NodeTransformer):
             ast3.FunctionDef(
                 name='function',
                 args=ast3.arguments(
-                    args=[ast3.arg(arg='fun', annotation=None)],
-                    vararg=ast3.arg(arg='args', annotation=None),
+                    args=[ast3.arg(arg='vau', annotation=None)],
+                    vararg=None,
                     kwonlyargs=[],
                     kw_defaults=[],
                     kwarg=None,
@@ -437,7 +377,7 @@ class PytroposTransformer(ast3.NodeTransformer):
             ast3.Assign(
                 targets=[
                     ast3.Subscript(
-                        value=ast3.Name(id=outside_vau, ctx=ast3.Load()),
+                        value=ast3.Name(id='vau', ctx=ast3.Load()),
                         slice=ast3.Index(
                             value=ast3.Str(s=node.name),
                         ),
@@ -479,7 +419,7 @@ class PytroposTransformer(ast3.NodeTransformer):
             varname = ast3.Str(s=node.id)
 
         return ast3.Subscript(
-            value=ast3.Name(id=self.vau_name, ctx=ast3.Load()),
+            value=ast3.Name(id='vau', ctx=ast3.Load()),
             slice=ast3.Index(
                 value=varname
             ),

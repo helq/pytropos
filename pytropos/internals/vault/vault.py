@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Callable
+from typing import Dict, List, Optional, Set, Callable, Iterable
 from typing import Tuple, Union  # noqa: F401
 import typing as ty
 from types import ModuleType
@@ -33,17 +33,13 @@ class DefFunction(Function):
                  ) -> None:
         # Assuming that we get our function wrapped by another function which gives us the
         # nonlocals of that function:
-        # def myfun():
-        #   def function(*args, **kargs):
-        #     vau1 = pt.Vault(vau)
-        #     vau1.add_locals('i', 'x')
-        #     vau1.load_args(args, kargs)
-        #     return pt.add(vau1['i'], vau1['x'])
-        #   return function, None, ('i', 'x')
+        # > def function(vau):
+        # >   return pt.add(vau['i'], vau['x'])
+        # > vau['myfun'] = pt.DefFunction(function, None, ('i', 'x'))
         #
         # From:
-        # def myfun(i, x):
-        #   return i + x
+        # > def myfun(i, x):
+        # >   return i + x
         #
         self._fun       = fun
         self._cell_vars = cell_vars
@@ -53,7 +49,11 @@ class DefFunction(Function):
     def co_cellvars(self) -> Optional[Dict[str, Cell]]:
         return self._cell_vars
 
-    def call(self, *args: 'Value', src_pos: Optional[Pos] = None) -> 'Value':  # type: ignore
+    def call(self,
+             args: Tuple['Value'],
+             vault: 'Vault',
+             src_pos: Optional[Pos] = None
+             ) -> 'Value':
         # TODO(helq): several todos:
         # should save the type of the arguments passed, also, should copy the type of return
         # if the code is run again with the same parameters, we don't need to run it again.
@@ -61,9 +61,14 @@ class DefFunction(Function):
         # - What happens when the function is called with Any() arguments, does it fail?
         # - What happens if the function is called with a specific set of arguments
         # Is the function calling itself recursevely, if yes, return Any() (probably)
-        return self._fun(self, *args)  # type: ignore
 
-    def load_args(self, vau: 'Vault', params: List[Value]) -> None:
+        # Creating new vault for new scope
+        new_vault = Vault(vault)
+        new_vault.add_locals(*self._args)
+        self.load_args(new_vault, args)
+        return self._fun(new_vault)  # type: ignore
+
+    def load_args(self, vau: 'Vault', params: Iterable[Value]) -> None:
         # TODO(helq): create alert of not mismatched size between declared args and number
         # of params passed to run
         for arg, param in zip(self._args, params):

@@ -1,4 +1,7 @@
 import typing as ty
+from typing import Tuple, Optional
+
+from ..tools import Pos
 
 __all__ = ['Value', 'Any']
 
@@ -25,7 +28,11 @@ class Value(object):
     def python_repr(self) -> str:
         raise NotImplementedError
 
-    def call(self, *args: ty.Any, **kargs: ty.Any) -> ty.Any:
+    def call(self,
+             args: Tuple[ty.Any],
+             vau: ty.Any,
+             src_pos: Optional[Pos]
+             ) -> ty.Any:
         raise NotImplementedError
 
     @property
