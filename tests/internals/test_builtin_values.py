@@ -3,7 +3,7 @@
 from tools import almost_any_value
 
 from pytropos.internals.values.builtin_values import Int, Float, Bool
-from pytropos.internals.values.value import Any, Value
+from pytropos.internals.values.base import Any, AbstractValue
 from pytropos.internals.errors import TypeCheckLogger
 from pytropos.internals.tools import Pos
 
@@ -287,7 +287,7 @@ class TestIntFloat(object):
             assert ops.rshift(i.n, j) == new_val2.n
 
     @given(almost_any_value)
-    def test_bools_return_either_Any_or_Bool(self, val: Value) -> None:
+    def test_bools_return_either_Any_or_Bool(self, val: AbstractValue) -> None:
         if isinstance(val, Any):
             assert isinstance(unitary.bool(val), Any)
         else:
@@ -346,7 +346,7 @@ class TestAny(object):
     @given(almost_any_value)
     def test_any_operated_with_any_other_value_results_in_any(
             self,
-            value: Value
+            value: AbstractValue
     ) -> None:
         """
         An Any object operated with any object gives us Any()

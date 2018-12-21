@@ -2,7 +2,7 @@ import typing as ty
 
 import math
 
-from .value import Value, Any
+from .base import AbstractValue, Any
 from ..operations.base import add_ops_to_global
 from ..tools import Pos
 from ..errors import TypeCheckLogger
@@ -10,35 +10,49 @@ from ..errors import TypeCheckLogger
 __all__ = ['Int', 'Float', 'Bool', 'Str', 'Iterable', 'ValueAsWithStmt', 'for_loop']
 
 
-class Iterable(Value):
-    def __init__(self, val: Value) -> None:
+class Iterable(AbstractValue):
+    def __init__(self, val: AbstractValue) -> None:
         # check all its internal values are None (Int(None), or Float(None))
         self.val = val
 
-    def next(self) -> Value:
+    def next(self) -> AbstractValue:
         return self.val
 
+    def join(self, other: 'AbstractValue') -> 'AbstractValue':
+        raise NotImplementedError()
 
-class Str(Value):
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
+        raise NotImplementedError()
+
+    @property
+    def type_name(self) -> str:
+        raise NotImplementedError()
+
+    @property
+    def abstract_repr(self) -> str:
+        raise NotImplementedError()
+
+
+class Str(AbstractValue):
     def __init__(self, s: ty.Optional[str] = None) -> None:
         self.s = s
 
-    def unite_inside(self, other: Value) -> Value:
+    def join(self, other: AbstractValue) -> AbstractValue:
         assert type(other) is Str, \
             "Sorry, but I only unite with other Strs"
         return Str()
 
-    def congruent_inside(self, other: 'Value') -> bool:
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
         assert type(other) is Str, \
             "Sorry, but I only unite with other Strs"
         return True
 
     @property
-    def python_name(self) -> str:
+    def type_name(self) -> str:
         return "str"
 
     @property
-    def python_repr(self) -> str:
+    def abstract_repr(self) -> str:
         if self.s is None:
             return "str?"
         else:
@@ -47,11 +61,11 @@ class Str(Value):
 
 def _Int_op_output_is_int(
         op: ty.Callable[[int, int], int]
-) -> ty.Callable[['Int', Value, ty.Optional[Pos]], ty.Union['Int', 'NotImplemented']]:
+) -> ty.Callable[['Int', AbstractValue, ty.Optional[Pos]], ty.Union['Int', 'NotImplemented']]:
 
     def binop(
             me: 'Int',
-            other: Value,
+            other: AbstractValue,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Int', 'NotImplemented']:
         if isinstance(other, Int):
@@ -73,11 +87,11 @@ def _Int_op_output_is_int(
 
 def _Int_op_output_is_float(
         op: ty.Callable[[int, int], float]
-) -> ty.Callable[['Int', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
+) -> ty.Callable[['Int', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
 
     def binop(
             me: 'Int',
-            other: Value,
+            other: AbstractValue,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Float', 'NotImplemented']:
         if isinstance(other, Int):
@@ -96,11 +110,11 @@ def _Int_op_output_is_float(
 
 def _Int_op_output_is_any(
         op: ty.Callable[[int, int], ty.Union[float, int]]
-) -> ty.Callable[['Int', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
+) -> ty.Callable[['Int', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
 
     def binop(
             me: 'Int',
-            other: Value,
+            other: AbstractValue,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Float', 'NotImplemented']:
         if isinstance(other, Int):
@@ -126,20 +140,20 @@ def _Int_op_output_is_any(
 # simulation of the basic building blocks (int, float, ...) should be as close
 # as possible to the official libraries)
 @add_ops_to_global
-class Int(Value):
+class Int(AbstractValue):
     def __init__(self, n: ty.Optional[int] = None) -> None:
         assert n is None or isinstance(n, int), \
             "Int can only carry int numbers (or None). It was given `{}`".format(type(n))
         self.n = n
 
-    def unite_inside(self, other: Value) -> Value:
+    def join(self, other: AbstractValue) -> AbstractValue:
         assert type(other) is Int, \
             "Sorry, but I only unite with other Ints"
         if self.n == other.n:  # type: ignore
             return Int(self.n)
         return Int()
 
-    def congruent_inside(self, other: 'Value') -> bool:
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
         assert isinstance(other, Int) and type(other) is Int, \
             "Sorry, but I only unite with other Ints"
         return self.n is None \
@@ -179,7 +193,7 @@ class Int(Value):
 
     def eq_op(
             self,
-            other: Value,
+            other: AbstractValue,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Bool', 'NotImplemented']:
         if isinstance(other, Int):
@@ -189,11 +203,11 @@ class Int(Value):
         return NotImplemented
 
     @property
-    def python_name(self) -> str:
+    def type_name(self) -> str:
         return "int"
 
     @property
-    def python_repr(self) -> str:
+    def abstract_repr(self) -> str:
         if self.n is None:
             return "int?"
         else:
@@ -202,11 +216,11 @@ class Int(Value):
 
 def _Float_op_output_is_float(
         op: ty.Callable[[float, ty.Union[float, int]], float]
-) -> ty.Callable[['Float', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
+) -> ty.Callable[['Float', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
 
     def binop(
             me: 'Float',
-            other: Value,
+            other: AbstractValue,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Float', 'NotImplemented']:
         if isinstance(other, (Float, Int)):
@@ -226,11 +240,11 @@ def _Float_op_output_is_float(
 
 def _Float_op_output_is_any(
         op: ty.Callable[[float, ty.Union[float, int]], ty.Union[float, complex]]
-) -> ty.Callable[['Float', Value, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
+) -> ty.Callable[['Float', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
 
     def binop(
             me: 'Float',
-            other: Value,
+            other: AbstractValue,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Float', 'NotImplemented']:
         if isinstance(other, (Float, Int)):
@@ -265,20 +279,20 @@ def _Float_op_output_is_any(
 
 # TODO(helq): add warning when operating with nan values
 @add_ops_to_global
-class Float(Value):
+class Float(AbstractValue):
     def __init__(self, n: ty.Optional[float] = None) -> None:
         assert n is None or isinstance(n, float), \
             "Float can only carry float numbers (or None). It was given `{}`".format(type(n))
         self.n = n
 
-    def unite_inside(self, other: Value) -> Value:
+    def join(self, other: AbstractValue) -> AbstractValue:
         assert type(other) is Float, \
             "Sorry, but I only unite with other Floats"
         if self.n == other.n:  # type: ignore
             return Float(self.n)
         return Float()
 
-    def congruent_inside(self, other: 'Value') -> bool:
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
         assert isinstance(other, Float) and type(other) is Float, \
             "Sorry, but I only unite with other Floats"
         return self.n is None \
@@ -315,7 +329,7 @@ class Float(Value):
 
     def eq_op(
             self,
-            other: Value,
+            other: AbstractValue,
             src_pos: ty.Optional[Pos] = None
     ) -> ty.Union['Bool', 'NotImplemented']:
         if isinstance(other, (Int, Float)):
@@ -325,11 +339,11 @@ class Float(Value):
         return NotImplemented
 
     @property
-    def python_name(self) -> str:
+    def type_name(self) -> str:
         return "float"
 
     @property
-    def python_repr(self) -> str:
+    def abstract_repr(self) -> str:
         if self.n is None:
             return "float?"
         else:
@@ -346,14 +360,14 @@ class Bool(Int):
     def __repr__(self) -> str:
         return "Bool("+repr(self.n)+")"
 
-    def unite_inside(self, other: Value) -> Value:
+    def join(self, other: AbstractValue) -> AbstractValue:
         assert type(other) is Bool, \
             "Sorry, but I only unite with other Bool"
         if self.n == other.n:  # type: ignore
             return Bool(self.n)  # type: ignore
         return Bool()
 
-    def congruent_inside(self, other: 'Value') -> bool:
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
         assert isinstance(other, Bool) and type(other) is Bool, \
             "Sorry, but I only unite with other Bools"
         return self.n is None \
@@ -367,11 +381,11 @@ class Bool(Int):
         return self
 
     @property
-    def python_name(self) -> str:
+    def type_name(self) -> str:
         return "bool"
 
     @property
-    def python_repr(self) -> str:
+    def abstract_repr(self) -> str:
         if self.n is None:
             return "bool?"
         else:
@@ -380,11 +394,11 @@ class Bool(Int):
 
 # TODO(helq): THIS SHOULDN'T BE USED!!! kill it!
 class ValueAsWithStmt(object):
-    def __init__(self, val: Value) -> None:
+    def __init__(self, val: AbstractValue) -> None:
         self.value = val
 
     def __enter__(self):
-        # type: (...) -> Value
+        # type: (...) -> AbstractValue
         return self.value
 
     def __exit__(self, exc_type, exc_value, traceback  # type: ignore

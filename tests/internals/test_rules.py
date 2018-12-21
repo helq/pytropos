@@ -1,4 +1,4 @@
-from pytropos.internals.values.value import Any, Value
+from pytropos.internals.values.base import Any, AbstractValue
 from pytropos.internals.values.builtin_values import Int, Float
 from pytropos.internals.rules import congruent, unite
 
@@ -14,20 +14,20 @@ class TestCongruent(object):
     """Testing some basic properties of congruent"""
 
     @given(almost_any_value)
-    def test_anything_with_Any_is_always_true(self, val: Value) -> None:
+    def test_anything_with_Any_is_always_true(self, val: AbstractValue) -> None:
         """? ~ x  is always true"""
         assert congruent(Any(), val)
         assert congruent(val, Any())
 
     @given(almost_any_value)
-    def test_anything_is_congruent_with_itself(self, val: Value) -> None:
+    def test_anything_is_congruent_with_itself(self, val: AbstractValue) -> None:
         """W(n) ~ W(n)  is always true"""
         assert congruent(val, val)
 
 
 class TestUnite(object):
     @given(almost_any_value)
-    def test_anything_unites_with_Any(self, val: Value) -> None:
+    def test_anything_unites_with_Any(self, val: AbstractValue) -> None:
         """unite(?, x) = ?"""
         assert isinstance(unite(val, Any()), Any)
         assert isinstance(unite(Any(), val), Any)
@@ -43,7 +43,7 @@ class TestUnite(object):
         assert type(unite(val1, val2)) is Float
 
     @given(almost_any_value, almost_any_value)
-    def test_different_values_give_Any(self, val1: Value, val2: Value) -> None:
+    def test_different_values_give_Any(self, val1: AbstractValue, val2: AbstractValue) -> None:
         """unite(W(), W()) = W()"""
         if type(val1) is not type(val2):
             assert type(unite(val1, val2)) is Any

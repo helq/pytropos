@@ -18,9 +18,24 @@ WarningType = str
 # W0__ : Builtin warning, something may fail
 # E0__ : Builtin error, the operation will fail
 # W2__ : A warning on an attribute that doesn't exists
-# W5__ : A warning with some external library
-# E5__ : Error with some external library
+# W5__ : A warning with some external library (user defined)
+# E5__ : Error with some external library (user defined)
 # NOIDEA : Error not yet classified
+
+# Table of known errors:
+# *Deprecated
+# W001*: Weird return value: Expected int or float but got ...
+# E001: ZeroDivisionError
+# E002: ValueError
+# E003: OverflowError
+# E009: TypeError: unsopported operand type(s)
+
+# W201: Global variable not set
+# W202: Local variable not set
+# W203: Non-local variable not set
+# W204: No attribute with that name in module
+# W212: Trying to delete already deleted local variable
+# W213: Trying to delete already deleted non-local variable
 
 
 class TypeCheckLogger(object, metaclass=Singleton):

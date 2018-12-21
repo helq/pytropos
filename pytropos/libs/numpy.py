@@ -1,7 +1,7 @@
 import typing as ty
 from typing import Optional, Type
 
-from pytropos.internals.values.value import Value
+from pytropos.internals.values.base import AbstractValue
 from pytropos.internals import Any, Int
 from pytropos.internals.operations.base import add_ops_to_global
 from pytropos.internals.errors import TypeCheckLogger
@@ -19,15 +19,33 @@ T = ty.TypeVar('T')
 
 
 @add_ops_to_global
-class ndarray(Value):
+class ndarray(AbstractValue):
     def __init__(self,
-                 shape: 'Optional[ty.Tuple[Value,...]]',
+                 shape: 'Optional[ty.Tuple[AbstractValue,...]]',
                  type: Optional[Type]) -> None:
         self.type = type
         self.shape = shape
 
+    def join(self, other: 'AbstractValue') -> 'AbstractValue':
+        raise NotImplementedError()
+
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
+        raise NotImplementedError()
+
+    @property
+    def type_name(self) -> str:
+        return "ndarray"
+
+    @property
+    def abstract_repr(self) -> str:
+        raise NotImplementedError()
+
     # Everything happens here, this is where the type checking is done
-    def __binop(self, opname: str, other: Value, src_pos: ty.Optional[Pos] = None):  # type: ignore
+    def __binop(self,  # type: ignore
+                opname: str,
+                other: AbstractValue,
+                src_pos: ty.Optional[Pos] = None
+                ):
         if isinstance(other, Int):
             # TODO(helq): the type of the resulting tensor is not the original,
             # but it depends on the value of the variable
@@ -55,10 +73,16 @@ class ndarray(Value):
         else:
             return NotImplemented
 
-    def add_op(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def add_op(self,
+               other: AbstractValue,
+               src_pos: ty.Optional[Pos] = None
+               ) -> AbstractValue:
         return self.__binop('add', other, src_pos)  # type: ignore
 
-    def mul_op(self, other: Value, src_pos: ty.Optional[Pos] = None) -> Value:  # type: ignore
+    def mul_op(self,
+               other: AbstractValue,
+               src_pos: ty.Optional[Pos] = None
+               ) -> AbstractValue:
         return self.__binop('mul', other, src_pos)  # type: ignore
 
     # TODO(helq): make this abstract, each class should implement it or use
@@ -83,7 +107,7 @@ class float32(NdarrayDtype):
 def zeros(shape: ty.Tuple[Int, ...],
           dtype: Type = float64,
           src_pos: ty.Optional[Pos] = None) -> ndarray:
-    new_shape = []  # type: ty.List[Value]
+    new_shape = []  # type: ty.List[AbstractValue]
     for n, dim in enumerate(shape):
         if isinstance(dim, Any):
             new_shape.append(dim)
@@ -101,7 +125,7 @@ def zeros(shape: ty.Tuple[Int, ...],
             TypeCheckLogger().new_warning(
                 "E502",
                 "Dimension {} is not an integer! ".format(n+1) +
-                "`{}` object cannot be interpreted as integer".format(dim.python_name),
+                "`{}` object cannot be interpreted as integer".format(dim.type_name),
                 src_pos)
             new_shape.append(Any())
     return ndarray(tuple(new_shape), dtype)
@@ -111,9 +135,9 @@ ones = zeros
 
 
 @MockFunction
-def dot(vall: Value,
-        valr: Value,
-        src_pos: ty.Optional[Pos] = None) -> Value:
+def dot(vall: AbstractValue,
+        valr: AbstractValue,
+        src_pos: ty.Optional[Pos] = None) -> AbstractValue:
     if isinstance(vall, ndarray) and isinstance(valr, ndarray):
         if vall.type == valr.type:
             if vall.shape is None or len(vall.shape) != 2:
@@ -130,14 +154,14 @@ def dot(vall: Value,
                     src_pos)
                 # TODO: dectect possible new type
                 return ndarray(None, None)
-            # TODO(helq): define __eq__ to check for equality of 'Value's
+            # TODO(helq): define __eq__ to check for equality of 'AbstractValue's
             else:
                 sleft  = vall.shape[1]
                 sright = valr.shape[0]
                 if congruent(sleft, sright):
                     return ndarray((vall.shape[0], valr.shape[1]), vall.type)
                 else:
-                    left_n, right_n = sleft.python_repr, sright.python_repr
+                    left_n, right_n = sleft.abstract_repr, sright.abstract_repr
                     TypeCheckLogger().new_warning(
                         "E504",
                         "{} != {}. "

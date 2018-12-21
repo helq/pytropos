@@ -1,6 +1,6 @@
 from typing import Dict, Union, List, Optional  # noqa: F401
 
-from ..values.value import Value
+from ..values.base import AbstractValue
 
 from .branch_node import BranchNode, global_branch
 
@@ -29,7 +29,7 @@ class Cell(object):
     def __init__(self) -> None:
         # content_layers can contain Values, None or the object Deleted (which signals the
         # variable has been deleted)
-        self._content_layers = [None]  # type: List[Union[Value, None, object]]
+        self._content_layers = [None]  # type: List[Union[AbstractValue, None, object]]
         self.__branch = global_branch
         # self.__id = Scope.__getnewid()
         # Scope.__existing_ids.add(self.__id)
@@ -41,7 +41,7 @@ class Cell(object):
     #     Scope.__existing_ids.remove(self.__id)
 
     @property
-    def raw_content(self) -> Union[Value, None, object]:
+    def raw_content(self) -> Union[AbstractValue, None, object]:
         if self.__branch != BranchNode.current_branch:
             self.__moveToNewBranch()
         for cont in reversed(self._content_layers):
@@ -52,11 +52,11 @@ class Cell(object):
         return None
 
     @raw_content.setter
-    def raw_content(self, val: Union[Value, None, object]) -> None:
+    def raw_content(self, val: Union[AbstractValue, None, object]) -> None:
         if self.__branch != BranchNode.current_branch:
             self.__moveToNewBranch()
-        assert val is None or val is Deleted or isinstance(val, Value), \
-            "The value `{}` is neither None, Deleted (an obj), or a Value".format(val)
+        assert val is None or val is Deleted or isinstance(val, AbstractValue), \
+            "The value `{}` is neither None, Deleted (an obj), or an AbstractValue".format(val)
         # print("setter", val)
         self._content_layers[-1] = val
 
@@ -70,20 +70,20 @@ class Cell(object):
         return False
 
     @property
-    def content(self) -> Value:
+    def content(self) -> AbstractValue:
         if self.__branch != BranchNode.current_branch:
             self.__moveToNewBranch()
         for cont in reversed(self._content_layers):
             if cont is Deleted:
                 raise KeyError("Cell is empty. The variable has been deleted")
             elif cont is not None:
-                # If the value is not None and not Deleted, then it must be a Value (or so
+                # If the value is not None and not Deleted, then it must be a AbstractValue (or so
                 # I hope)
                 return cont  # type: ignore
         raise KeyError("Cell is empty. No value has been saved on it")
 
     @content.setter
-    def content(self, content: Value) -> None:
+    def content(self, content: AbstractValue) -> None:
         if self.__branch != BranchNode.current_branch:
             self.__moveToNewBranch()
         self._content_layers[-1] = content

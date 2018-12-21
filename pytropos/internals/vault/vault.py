@@ -3,7 +3,7 @@ from typing import Tuple, Union  # noqa: F401
 import typing as ty
 from types import ModuleType
 
-from ..values.value import Value, Any
+from ..values.base import AbstractValue, Any
 from ..values.function import Function
 from ..values.builtin_values import Bool
 from ..errors import TypeCheckLogger
@@ -49,11 +49,25 @@ class DefFunction(Function):
     def co_cellvars(self) -> Optional[Dict[str, Cell]]:
         return self._cell_vars
 
+    def join(self, other: 'AbstractValue') -> 'AbstractValue':
+        raise NotImplementedError()
+
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
+        raise NotImplementedError()
+
+    @property
+    def type_name(self) -> str:
+        raise NotImplementedError()
+
+    @property
+    def abstract_repr(self) -> str:
+        raise NotImplementedError()
+
     def call(self,
-             args: Tuple['Value'],
+             args: Tuple['AbstractValue'],
              vault: 'Vault',
              src_pos: Optional[Pos] = None
-             ) -> 'Value':
+             ) -> 'AbstractValue':
         # TODO(helq): several todos:
         # should save the type of the arguments passed, also, should copy the type of return
         # if the code is run again with the same parameters, we don't need to run it again.
@@ -68,7 +82,7 @@ class DefFunction(Function):
         self.load_args(new_vault, args)
         return self._fun(new_vault)  # type: ignore
 
-    def load_args(self, vau: 'Vault', params: Iterable[Value]) -> None:
+    def load_args(self, vau: 'Vault', params: Iterable[AbstractValue]) -> None:
         # TODO(helq): create alert of not mismatched size between declared args and number
         # of params passed to run
         for arg, param in zip(self._args, params):
@@ -78,7 +92,7 @@ class DefFunction(Function):
 
 # Closure = List[Tuple[Tuple[str, ...], Scope]]
 ClosureDict = Dict[int, FrozenScope]
-ScopeLike = Dict[str, Value]
+ScopeLike = Dict[str, AbstractValue]
 
 
 def extendMerge(dic: Dict[ty.Any, Set[str]], other: Dict[ty.Any, Set[str]]) -> None:
@@ -94,8 +108,8 @@ class FrozenVault(object):
         self.is_global = vault._global
         self.global_scope = FrozenScope(vault._global_scope)
         if self.is_global:
-            self.nonlocals = {}  # type: Dict[str, Union[object, None, Value]]
-            self.locals = {}     # type: Dict[str, Union[object, None, Value]]
+            self.nonlocals = {}  # type: Dict[str, Union[object, None, AbstractValue]]
+            self.locals = {}     # type: Dict[str, Union[object, None, AbstractValue]]
         else:
             self.nonlocals = {i: k.raw_content for i, k in vault._nonlocals_cells.items()
                               if i in vault._nonlocals}
@@ -104,16 +118,16 @@ class FrozenVault(object):
 
 class Vault(object):
     # __global_vault = None  # type: Optional[Vault]
-    __builtin_scope = None  # type: Dict[str, Value]
+    __builtin_scope = None  # type: Dict[str, AbstractValue]
 
     @classmethod
-    def get_builtins(cls) -> Dict[str, Value]:
+    def get_builtins(cls) -> Dict[str, AbstractValue]:
         if cls.__builtin_scope is None:
             raise ValueError("No default builtins has been defined")
         return cls.__builtin_scope
 
     @classmethod
-    def set_builtins(cls, dic: Dict[str, Value]) -> None:
+    def set_builtins(cls, dic: Dict[str, AbstractValue]) -> None:
         cls.__builtin_scope = dic
 
     def __init__(self,
@@ -214,7 +228,7 @@ class Vault(object):
                     del self._locals_cells[key].content
                 else:
                     TypeCheckLogger().new_warning(
-                        "W202",
+                        "W212",
                         "The local variable `{}` has been already deleted".format(key),
                         src_pos
                     )
@@ -224,7 +238,7 @@ class Vault(object):
                     del self._nonlocals_cells[key].content
                 else:
                     TypeCheckLogger().new_warning(
-                        "W203",
+                        "W213",
                         "The nonlocal variable `{}` has been already deleted".format(key),
                         src_pos
                     )
@@ -296,12 +310,12 @@ class Vault(object):
         return branch_vault
 
     def runIfBranching(self,
-                       if_res: Value,
+                       if_res: AbstractValue,
                        if_branch: Callable[[], None],
                        else_branch: Optional[Callable[[], None]] = None
                        ) -> None:
-        assert isinstance(if_res, Value), \
-            "the result of the execution of an if statement must always be a Value"
+        assert isinstance(if_res, AbstractValue), \
+            "the result of the execution of an if statement must always be a AbstractValue"
 
         if_bool = unitary.bool(if_res)
 
@@ -359,10 +373,27 @@ class Vault(object):
         print("Global variables: {}".format(self._global_scope))
 
 
-class Module(Value):
+class Module(AbstractValue):
     def __init__(self, mod: ModuleType, name: str) -> None:
         self.module = mod
         self.name = name
+
+    def join(self, other: 'AbstractValue') -> 'AbstractValue':
+        raise NotImplementedError()
+
+    def congruent_inside(self, other: 'AbstractValue') -> bool:
+        raise NotImplementedError()
+
+    @property
+    def type_name(self) -> str:
+        raise NotImplementedError()
+
+    @property
+    def abstract_repr(self) -> str:
+        raise NotImplementedError()
+
+    def call(self, *args: ty.Any, **kargs: ty.Any) -> 'Any':
+        raise NotImplementedError()
 
     @property
     def exported_vars(self) -> List[str]:
@@ -373,7 +404,7 @@ class Module(Value):
 
         return exported_vars
 
-    def __getitem__(self, key_: Union[str, Tuple[str, Pos]]) -> Value:
+    def __getitem__(self, key_: Union[str, Tuple[str, Pos]]) -> AbstractValue:
         if not isinstance(key_, tuple):
             key = key_
             src_pos = None  # type: Optional[Pos]
@@ -390,7 +421,7 @@ class Module(Value):
         )
         return Any()
 
-    def __setitem__(self, key: str, var: Value) -> None:
+    def __setitem__(self, key: str, var: AbstractValue) -> None:
         raise NotImplementedError("You cannot overwrite variables inside a module yet!  Sorry")
 
     def __delitem__(self, key: str) -> None:

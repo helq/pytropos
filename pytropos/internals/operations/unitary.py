@@ -1,7 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 
 from .base import uniop_rules
-from ..values.value import Any, Value
+from ..values.base import Any, AbstractValue
 from ..values.builtin_values import Bool, Int
 from ..tools import Pos
 
@@ -16,7 +16,7 @@ else:
 
 # ## Unary Operations ##
 
-def bool(val: Value, src_pos: Optional[Pos] = None) -> Value:
+def bool(val: AbstractValue, src_pos: Optional[Pos] = None) -> AbstractValue:
     if isinstance(val, Any):
         return Any()
     res = uniop_rules.run('__bool__', val, src_pos)

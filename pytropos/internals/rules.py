@@ -1,4 +1,4 @@
-from .values.value import Value, Any
+from .values.base import AbstractValue, Any
 
 __all__ = [
     'congruent', 'unite'
@@ -7,7 +7,7 @@ __all__ = [
 
 # I don't consider subtying in this work, for simplicity purposes, no tensor derives from
 # other classes (only from `object`)
-def congruent(x: Value, y: Value) -> bool:
+def congruent(x: AbstractValue, y: AbstractValue) -> bool:
     """
     Implements rules:
     x ~ ?
@@ -21,7 +21,7 @@ def congruent(x: Value, y: Value) -> bool:
     return type(x) is type(y) and x.congruent_inside(y)
 
 
-def unite(x: Value, y: Value) -> Value:
+def unite(x: AbstractValue, y: AbstractValue) -> AbstractValue:
     """
     Implements unite basic rule of the type system:
     unite(?, x) = ?
@@ -38,4 +38,4 @@ def unite(x: Value, y: Value) -> Value:
     if type(x) is not type(y):  # inhibiting subtyping!!
         return Any()
 
-    return x.unite_inside(y)
+    return x.join(y)  # type: ignore

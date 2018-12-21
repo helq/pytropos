@@ -1,21 +1,17 @@
 import typing as ty
-from typing import Union, Tuple, Optional, TYPE_CHECKING
+from typing import Union, Tuple, Optional
 from typing import List  # noqa: F401
 
-from ..values.value import Value, Any
+from ..values.base import AbstractValue, Any
 from ..tools import Pos
 from ..errors import TypeCheckLogger
 
 __all__ = [
     'RuleError', 'BinRules',
-    'congruent', 'unite'
 ]
 
-if TYPE_CHECKING:
-    Bool = __builtins__.bool
-
-BinOp = ty.Callable[[Value, Value, Optional[Pos]], Value]
-UniOp = ty.Callable[[Value, Optional[Pos]], Value]
+BinOp = ty.Callable[[AbstractValue, AbstractValue, Optional[Pos]], AbstractValue]
+UniOp = ty.Callable[[AbstractValue, Optional[Pos]], AbstractValue]
 
 binary_operators = [
     ('add',      '+',  ('__add__',      '__radd__'     )),  # noqa: E202
@@ -43,7 +39,7 @@ all_operators.extend([op for op, _ in unary_operators])
 
 
 # Base method definition
-# def sub(valL: Value, valR: Value) -> Value:
+# def sub(valL: AbstractValue, valR: AbstractValue) -> AbstractValue:
 #     if isinstance(valL, Any) or isinstance(valR, Any):
 #         return Any()
 #     res = binop_rules.run('__sub__', valL, valR)
@@ -56,9 +52,12 @@ all_operators.extend([op for op, _ in unary_operators])
 def __create_binop(
         dunder_ops: Union[Tuple[str], Tuple[str, str]],
         opname: str
-) -> ty.Callable[[Value, Value, Optional[Pos]], Union[Value, 'NotImplemented']]:
+) -> ty.Callable[[AbstractValue, AbstractValue, Optional[Pos]],
+                 Union[AbstractValue, 'NotImplemented']]:
 
-    def binop(valL: Value, valR: Value, src_pos: Optional[Pos] = None) -> Value:
+    def binop(valL: AbstractValue,
+              valR: AbstractValue,
+              src_pos: Optional[Pos] = None) -> AbstractValue:
         if isinstance(valL, Any) or isinstance(valR, Any):
             return Any()
 
@@ -72,8 +71,8 @@ def __create_binop(
                 "unsupported operand type(s) for {op}: '{leftarg}' and '{rightarg}'"
                 .format(
                     op=opname,
-                    leftarg=valL.python_name,
-                    rightarg=valR.python_name
+                    leftarg=valL.type_name,
+                    rightarg=valR.type_name
                 ),
                 src_pos)
             return Any()
@@ -117,17 +116,17 @@ class BinRules(object):
 
         self._rules[rule_name][typeL] = rule
 
-    def isThereARule(self, rule_name: str, typeL: ty.Type) -> 'Bool':
+    def isThereARule(self, rule_name: str, typeL: ty.Type) -> bool:
         if rule_name not in self._rules:
             return False
         return typeL in self._rules[rule_name]
 
     def run(self,
             rule_name: str,
-            valL: Value,
-            valR: Value,
+            valL: AbstractValue,
+            valR: AbstractValue,
             src_pos: Optional[Pos]
-            ) -> ty.Union[Value, 'NotImplemented']:
+            ) -> ty.Union[AbstractValue, 'NotImplemented']:
 
         # print("running rule {} with params: {} and {}".format(rule_name, valL, valR))
         if rule_name not in self._rules:
@@ -176,16 +175,16 @@ class UniRules(object):
 
         self._rules[rule_name][typeL] = rule
 
-    def isThereARule(self, rule_name: str, typeL: ty.Type) -> 'Bool':
+    def isThereARule(self, rule_name: str, typeL: ty.Type) -> bool:
         if rule_name not in self._rules:
             return False
         return typeL in self._rules[rule_name]
 
     def run(self,
             rule_name: str,
-            val: Value,
+            val: AbstractValue,
             src_pos: Optional[Pos]
-            ) -> ty.Union[Value, 'NotImplemented']:
+            ) -> ty.Union[AbstractValue, 'NotImplemented']:
 
         # print("running rule {} with params: {} and {}".format(rule_name, val))
         if rule_name not in self._rules:
@@ -214,91 +213,56 @@ def add_ops_to_global(klass: ty.Type) -> ty.Type:
     return uniop_rules.extractRulesFromClass(kls2)
 
 
-# I don't consider subtying in this work, for simplicity purposes, no tensor derives from
-# other classes (only from `object`)
-def congruent(x: Value, y: Value) -> 'Bool':
-    """
-    Implements rules:
-    x ~ ?
-    ? ~ x
-    x ~ x
-    x ≁ y
-    """
-    if isinstance(x, Any) or isinstance(y, Any):
-        return True
-
-    return type(x) is type(y)
-
-
-def unite(x: Value, y: Value) -> Value:
-    """
-    Implements unite basic rule of the type system:
-    unite(?, x) = ?
-    unite(x, ?) = ?
-    unite(x, x) = x
-    unite(x, y) = ?
-    unite(W(a), W(b)) = W(unite(a,b))
-
-    NOTE: This function doesn't assume subtyping!!!
-    """
-    if isinstance(x, Any) or isinstance(y, Any):
-        return Any()
-    if type(x) is not type(y):  # inhibiting subtyping!!
-        return Any()
-
-    return x.unite_inside(y)
-
-
-if __name__ == '__main__':  # noqa: C901
-    class A(Value):
-        def __init__(self, n: int) -> None:
-            self.n = str(n)
-            self.m = 1
-
-        def sub_op(self, other: Value) -> ty.Union[Value, 'NotImplemented']:
-            if isinstance(other, A):
-                ret = A(int(self.n) - int(other.n))
-                ret.m += self.m + other.m + 1
-                return ret
-            return NotImplemented
-
-        def __repr__(self) -> str:
-            return "A(n=" + self.n + ", m=" + repr(self.m) + ")"
-
-    @add_ops_to_global
-    class B(Value):
-        def __init__(self, n: int) -> None:
-            self.ll = n
-
-        def sub_op(self, other: Value) -> ty.Union[Value, 'NotImplemented']:
-            if isinstance(other, B):
-                return B(self.ll - other.ll)
-            if isinstance(other, A):
-                ret = B(self.ll - (int(other.n) * other.m))
-                return ret
-            return NotImplemented
-
-        def rsub_op(self, other: Value) -> ty.Union[Value, 'NotImplemented']:
-            if isinstance(other, B):
-                return B(other.ll - self.ll)
-            if isinstance(other, A):
-                ret = B(-self.ll + (int(other.n) * other.m))
-                return ret
-            return NotImplemented
-
-        def __repr__(self) -> str:
-            return "B(ll=" + repr(self.ll) + ")"
-
-    class C(Value):
-        pass
-
-    # rules.addRule('__sub__', A, A.__sub__)  # type: ignore
-    binop_rules.extractRulesFromClass(A)
-    print(binop_rules.run('__sub__', A(4), A(3), None))
-    # print(A(4) - A(3))
-    print(sub(A(4), A(3)))  # type: ignore  # noqa: F821
-
-    print(sub(B(4), A(3)))  # type: ignore  # noqa: F821
-    print(sub(A(3), B(4)))  # type: ignore  # noqa: F821
-
-    print(sub(A(3), C()))  # type: ignore  # noqa: F821
+# if __name__ == '__main__':  # noqa: C901
+#     class A(AbstractValue):
+#         def __init__(self, n: int) -> None:
+#             self.n = str(n)
+#             self.m = 1
+#
+#         def sub_op(self, other: AbstractValue) -> ty.Union[AbstractValue, 'NotImplemented']:
+#             if isinstance(other, A):
+#                 ret = A(int(self.n) - int(other.n))
+#                 ret.m += self.m + other.m + 1
+#                 return ret
+#             return NotImplemented
+#
+#         def __repr__(self) -> str:
+#             return "A(n=" + self.n + ", m=" + repr(self.m) + ")"
+#
+#     @add_ops_to_global
+#     class B(AbstractValue):
+#         def __init__(self, n: int) -> None:
+#             self.ll = n
+#
+#         def sub_op(self, other: AbstractValue) -> ty.Union[AbstractValue, 'NotImplemented']:
+#             if isinstance(other, B):
+#                 return B(self.ll - other.ll)
+#             if isinstance(other, A):
+#                 ret = B(self.ll - (int(other.n) * other.m))
+#                 return ret
+#             return NotImplemented
+#
+#         def rsub_op(self, other: AbstractValue) -> ty.Union[AbstractValue, 'NotImplemented']:
+#             if isinstance(other, B):
+#                 return B(other.ll - self.ll)
+#             if isinstance(other, A):
+#                 ret = B(-self.ll + (int(other.n) * other.m))
+#                 return ret
+#             return NotImplemented
+#
+#         def __repr__(self) -> str:
+#             return "B(ll=" + repr(self.ll) + ")"
+#
+#     class C(AbstractValue):
+#         pass
+#
+#     # rules.addRule('__sub__', A, A.__sub__)  # type: ignore
+#     binop_rules.extractRulesFromClass(A)
+#     print(binop_rules.run('__sub__', A(4), A(3), None))
+#     # print(A(4) - A(3))
+#     print(sub(A(4), A(3)))  # type: ignore  # noqa: F821
+#
+#     print(sub(B(4), A(3)))  # type: ignore  # noqa: F821
+#     print(sub(A(3), B(4)))  # type: ignore  # noqa: F821
+#
+#     print(sub(A(3), C()))  # type: ignore  # noqa: F821
