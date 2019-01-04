@@ -1,8 +1,9 @@
 from enum import Enum
 from functools import partial
 from typing import Union, Optional, Any
+from typing import Callable  # noqa: F401
 
-from .primitive_values import Int, Float, Bool, AbstractValue, ops_symbols
+from .primitive_values import Int, Float, Bool, NoneType, AbstractValue, ops_symbols
 from ..abstract_domain import AbstractDomain
 from ..errors import TypeCheckLogger
 
@@ -125,13 +126,30 @@ def int(val: Optional['__builtins__.int'] = None) -> PythonValue:
 
 
 def float(val: Optional['__builtins__.float'] = None) -> PythonValue:
-    """Returns an Float wrapped into a PythonValue"""
+    """Returns a Float wrapped into a PythonValue"""
     return PythonValue(Float(val))
 
 
 def bool(val: Optional['__builtins__.bool'] = None) -> PythonValue:
-    """Returns an Float wrapped into a PythonValue"""
+    """Returns a Bool wrapped into a PythonValue"""
     return PythonValue(Bool(val))
+
+
+def __createNonePV() -> Any:
+    """
+    Returns a NoneType wrapped into a PythonValue
+    Why waste memory on a class that contains a unique element.
+    Creating an element of type NoneType and returning it every single time.
+    """
+    none = PythonValue(NoneType())
+
+    def retNone() -> PythonValue:
+        nonlocal none
+        return none
+    return retNone
+
+
+none = __createNonePV()  # type: Callable[[], PythonValue]
 
 
 if __name__ == '__main__':
@@ -173,5 +191,12 @@ if __name__ == '__main__':
     val1 = bool(True)
     val2 = int()
     print(f"{val1} << {val2} == {val1.lshift(val2)}")
+
+    val1 = none()
+    val2 = int(3)
+    print(f"{val1} << {val2} == {val1.lshift(val2)}")
+
+    print(f"NoneType() is NoneType() == {NoneType() is NoneType()}")
+    print(f"none() is none() == {none() is none()}")
 
     print(f"Errors: {TypeCheckLogger()}")

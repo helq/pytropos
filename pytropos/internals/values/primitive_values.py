@@ -139,11 +139,11 @@ class Int(AbstractValue):
             or op[3] in ('Int', 'Bool')  # allowing op_add_Bool
         ):
             if op[1] in ('add', 'sub', 'mul', 'radd', 'rsub', 'rmul'):
-                return partial(Int._Int__operate, self, op[1])  # type: ignore
+                return partial(Int.__operate, self, op[1])
             if op[1] in ('lshift', 'rshift', 'rlshift', 'rrshift'):
-                return partial(Int._Int__operate_shift, self, op[1])  # type: ignore
+                return partial(Int.__operate_shift, self, op[1])
             if op[1] in ('truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'):
-                return partial(Int._Int__operate_div, self, op[1])  # type: ignore
+                return partial(Int.__operate_div, self, op[1])
 
         return object.__getattribute__(self, name)
 
@@ -334,3 +334,34 @@ class Bool(AbstractValue):
             return repr(self.val)
 
     __getattribute__ = Int.__getattribute__
+
+
+class NoneType(AbstractValue):
+    "None Abstract Domain. It's composed of a single Value: None"
+
+    __instance = None  # type: NoneType
+
+    def __new__(cls) -> 'NoneType':
+        "Making sure only one object is ever created"
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+        return cls.__instance
+
+    @classmethod
+    def top(cls) -> 'NoneType':
+        """The top value of this Abstract Domain"""
+        return cls()
+
+    def is_top(self) -> bool:
+        return True
+
+    def join(self, other: 'NoneType') -> 'NoneType':
+        return self
+
+    @property
+    def type_name(self) -> str:
+        return "NoneType"
+
+    @property
+    def abstract_repr(self) -> str:
+        return "None"

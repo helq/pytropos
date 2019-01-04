@@ -41,6 +41,7 @@ st_any_pv = st.one_of(
     st.builds(pv.int, st_ints),
     st.builds(pv.float, st_floats),
     st.builds(pv.bool, st_bools),
+    st.just(pv.none()),
     st.just(PythonValue.top())
 )
 
@@ -167,13 +168,23 @@ class TestFloats:
 
 
 class TestBools:
-    """Testing floats only"""
+    """Testing bools only"""
 
-    @given(st.booleans())
-    def test_bool_preserved(self, b: bool) -> None:
-        new_val = Bool(b)
-        assert not new_val.is_top()
-        assert new_val.val is b
+    def test_bool_preserved(self) -> None:
+        for b in [True, False, None]:
+            new_val = Bool(b)
+            assert new_val.is_top() == (b is None)
+            assert new_val.val is b
+
+
+class TestNone:
+    """Testing bools only"""
+
+    def test_topness_of_none(self) -> None:
+        "None contains a unique value: None"
+        none = pv.none()
+        assert not none.is_top()
+        assert none.val.is_top()  # type: ignore
 
 
 class TestPythonValue:
