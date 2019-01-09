@@ -1,1 +1,0 @@
-tests/example_code/01-adding-mypy-types-fail.py:4:6: E504 5 != 6. Matrices are not compatible for multiplication. The second dimension of the first array `5` isn't equal to the first dimension of the second array `6`

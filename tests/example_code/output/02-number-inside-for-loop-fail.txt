@@ -1,2 +1,0 @@
-tests/example_code/02-number-inside-for-loop-fail.py:11:4: E502 Dimension 2 is not an integer! `float` object cannot be interpreted as integer
-tests/example_code/02-number-inside-for-loop-fail.py:12:6: E504 5 != 7. Matrices are not compatible for multiplication. The second dimension of the first array `5` isn't equal to the first dimension of the second array `7`

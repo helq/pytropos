@@ -1,206 +1,58 @@
-import typing as ty
+import re
+from functools import partial
+from typing import Optional, Any, Union
 
-import math
-
-from .base import AbstractValue, Any
-from ..operations.base import add_ops_to_global
-from ..tools import Pos
+from .abstract_value import AbstractValue
 from ..errors import TypeCheckLogger
+from ..miscelaneous import Pos
 
-__all__ = ['Int', 'Float', 'Bool', 'Str', 'Iterable', 'ValueAsWithStmt', 'for_loop']
+__all__ = ['Int', 'Float']
 
 
-class Iterable(AbstractValue):
-    def __init__(self, val: AbstractValue) -> None:
-        # check all its internal values are None (Int(None), or Float(None))
+ops_symbols = {
+    'add': '+',
+    'sub': '+',
+    'mul': '*',
+    'truediv': '/',
+    'floordiv': '//',
+    'mod': '%',
+    # 'divmod': 'divmod',
+    # 'pow': '**',
+    'lshift': '<<',
+    'rshift': '>>',
+    # 'and': '&',
+    # 'xor': '^',
+    # 'or': '|',
+}
+
+extract_op = re.compile(r'op_([a-zA-Z]*)(_([a-zA-Z]*))?$')
+
+
+class Int(AbstractValue):
+    """Int Abstract Domain. It is the simplest, the abstraction function is Int(n) and
+    the concretisation is all naturals for n==None and {n} for n"""
+    def __init__(self, val: Optional[int] = None) -> None:
+        """
+        If val is None, then the Int value is Top
+        """
         self.val = val
 
-    def next(self) -> AbstractValue:
-        return self.val
+    __top = None  # type: Int
 
-    def join(self, other: 'AbstractValue') -> 'AbstractValue':
-        raise NotImplementedError()
+    @classmethod
+    def top(cls) -> 'Int':
+        """The top value of this Abstract Domain is Int(None)"""
+        if cls.__top is None:
+            cls.__top = Int(None)
+        return cls.__top
 
-    def congruent_inside(self, other: 'AbstractValue') -> bool:
-        raise NotImplementedError()
+    def is_top(self) -> bool:
+        return self.val is None
 
-    @property
-    def type_name(self) -> str:
-        raise NotImplementedError()
-
-    @property
-    def abstract_repr(self) -> str:
-        raise NotImplementedError()
-
-
-class Str(AbstractValue):
-    def __init__(self, s: ty.Optional[str] = None) -> None:
-        self.s = s
-
-    def join(self, other: AbstractValue) -> AbstractValue:
-        assert type(other) is Str, \
-            "Sorry, but I only unite with other Strs"
-        return Str()
-
-    def congruent_inside(self, other: 'AbstractValue') -> bool:
-        assert type(other) is Str, \
-            "Sorry, but I only unite with other Strs"
-        return True
-
-    @property
-    def type_name(self) -> str:
-        return "str"
-
-    @property
-    def abstract_repr(self) -> str:
-        if self.s is None:
-            return "str?"
-        else:
-            return repr(self.s)
-
-
-def _Int_op_output_is_int(
-        op: ty.Callable[[int, int], int]
-) -> ty.Callable[['Int', AbstractValue, ty.Optional[Pos]], ty.Union['Int', 'NotImplemented']]:
-
-    def binop(
-            me: 'Int',
-            other: AbstractValue,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Int', 'NotImplemented']:
-        if isinstance(other, Int):
-            if me.n is None or other.n is None:
-                return Int()
-            try:
-                new_n = op(me.n, other.n)  # type: ty.Optional[int]
-            except ZeroDivisionError as msg:
-                new_n = None
-                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
-            except ValueError as msg:  # This only happens with rshift and lshift
-                new_n = None
-                TypeCheckLogger().new_warning("E002", "ValueError: " + str(msg), src_pos)
-            return Int(new_n)
-        return NotImplemented
-
-    return binop
-
-
-def _Int_op_output_is_float(
-        op: ty.Callable[[int, int], float]
-) -> ty.Callable[['Int', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
-
-    def binop(
-            me: 'Int',
-            other: AbstractValue,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Float', 'NotImplemented']:
-        if isinstance(other, Int):
-            if me.n is None or other.n is None:
-                return Float()
-            try:
-                new_n = op(me.n, other.n)  # type: ty.Optional[float]
-            except ZeroDivisionError as msg:
-                new_n = None
-                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
-            return Float(new_n)
-        return NotImplemented
-
-    return binop
-
-
-def _Int_op_output_is_any(
-        op: ty.Callable[[int, int], ty.Union[float, int]]
-) -> ty.Callable[['Int', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
-
-    def binop(
-            me: 'Int',
-            other: AbstractValue,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Float', 'NotImplemented']:
-        if isinstance(other, Int):
-            if me.n is None or other.n is None:
-                return Any()
-            try:
-                new_n = op(me.n, other.n)  # type: ty.Union[int, float, None]
-            except ZeroDivisionError as msg:
-                new_n = None
-                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
-
-            if isinstance(new_n, int):
-                return Int(new_n)
-            elif isinstance(new_n, float):
-                return Float(new_n)
-            return Any()
-        return NotImplemented
-
-    return binop
-
-
-# TODO(helq): trying to set an attribute should throw an error (ie, the
-# simulation of the basic building blocks (int, float, ...) should be as close
-# as possible to the official libraries)
-@add_ops_to_global
-class Int(AbstractValue):
-    def __init__(self, n: ty.Optional[int] = None) -> None:
-        assert n is None or isinstance(n, int), \
-            "Int can only carry int numbers (or None). It was given `{}`".format(type(n))
-        self.n = n
-
-    def join(self, other: AbstractValue) -> AbstractValue:
-        assert type(other) is Int, \
-            "Sorry, but I only unite with other Ints"
-        if self.n == other.n:  # type: ignore
-            return Int(self.n)
+    def join(self, other: 'Int') -> 'Int':
+        if self.val == other.val:
+            return self
         return Int()
-
-    def congruent_inside(self, other: 'AbstractValue') -> bool:
-        assert isinstance(other, Int) and type(other) is Int, \
-            "Sorry, but I only unite with other Ints"
-        return self.n is None \
-            or other.n is None \
-            or self.n == other.n
-
-    def __repr__(self) -> str:
-        return "Int("+repr(self.n)+")"
-
-    # TODO(helq): add test to make sure all dunder methods from int are implemented
-    add_op       = _Int_op_output_is_int(int.__add__)
-    radd_op      = _Int_op_output_is_int(int.__radd__)
-    sub_op       = _Int_op_output_is_int(int.__sub__)
-    rsub_op      = _Int_op_output_is_int(int.__rsub__)
-    mul_op       = _Int_op_output_is_int(int.__mul__)
-    rmul_op      = _Int_op_output_is_int(int.__rmul__)
-    truediv_op   = _Int_op_output_is_float(int.__truediv__)
-    rtruediv_op  = _Int_op_output_is_float(int.__rtruediv__)
-    floordiv_op  = _Int_op_output_is_int(int.__floordiv__)
-    rfloordiv_op = _Int_op_output_is_int(int.__rfloordiv__)
-    mod_op       = _Int_op_output_is_int(int.__mod__)
-    rmod_op      = _Int_op_output_is_int(int.__rmod__)
-    pow_op       = _Int_op_output_is_any(int.__pow__)
-    rpow_op      = _Int_op_output_is_any(int.__rpow__)
-    lshift_op    = _Int_op_output_is_int(int.__lshift__)
-    rlshift_op   = _Int_op_output_is_int(int.__rlshift__)
-    rshift_op    = _Int_op_output_is_int(int.__rshift__)
-    rrshift_op   = _Int_op_output_is_int(int.__rrshift__)
-
-    def bool_op(
-            self,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Bool', 'NotImplemented']:
-        if self.n is None:
-            return Bool()
-        return Bool(bool(self.n))
-
-    def eq_op(
-            self,
-            other: AbstractValue,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Bool', 'NotImplemented']:
-        if isinstance(other, Int):
-            if self.n is None or other.n is None:
-                return Bool()
-            return Bool(self.n == other.n)
-        return NotImplemented
 
     @property
     def type_name(self) -> str:
@@ -208,135 +60,102 @@ class Int(AbstractValue):
 
     @property
     def abstract_repr(self) -> str:
-        if self.n is None:
+        if self.val is None:
             return "int?"
         else:
-            return repr(self.n)
+            return repr(self.val)
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Int):
+            return False
+        if self.is_top() and other.is_top():
+            return True
+        return self.val == other.val
+
+    def __getattribute__(self, name: str) -> Any:
+        # Checking if name is 'op_OP' (eg, 'op_add')
+        op = extract_op.match(name)
+        if op and (
+            not op[3]  # allowing op_add
+            or op[3] in ('Int', 'Bool')  # allowing op_add_Bool
+        ):
+            if op[1] in ('add', 'sub', 'mul', 'radd', 'rsub', 'rmul'):
+                return partial(Int.__operate, self, op[1])
+            if op[1] in ('lshift', 'rshift', 'rlshift', 'rrshift'):
+                return partial(Int.__operate_shift, self, op[1])
+            if op[1] in ('truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'):
+                return partial(Int.__operate_div, self, op[1])
+
+        return object.__getattribute__(self, name)
+
+    def __operate(self, op: str, other: 'Int', pos: Optional[Pos]) -> 'Int':
+        if self.val is None or other.val is None:
+            return Int.top()
+
+        new_val = getattr(int, f"__{op}__")(self.val, other.val)
+        return Int(new_val)
+
+    def __operate_shift(self, op: str, other: 'Int', pos: Optional[Pos]) -> 'Int':
+        if self.val is None or other.val is None:
+            return Int.top()
+
+        try:
+            new_val = getattr(int, f"__{op}__")(self.val, other.val)
+        except ValueError as msg:
+            TypeCheckLogger().new_warning(
+                "E002", f"ValueError: {msg}", pos)
+            return Int.top()
+
+        return Int(new_val)
+
+    def __operate_div(self,
+                      op: str,
+                      other: 'Int',
+                      pos: Optional[Pos]) -> Union['Int', 'Float', None]:
+        if self.val is None or other.val is None:
+            return None
+
+        try:
+            new_val = getattr(int, f"__{op}__")(self.val, other.val)
+        except ZeroDivisionError as msg:
+            TypeCheckLogger().new_warning(
+                "E001", f"ZeroDivisionError: {msg}", pos)
+            return None
+
+        return Int(new_val) if isinstance(new_val, int) else Float(new_val)
+
+    def op_bool(self, pos: Optional[Pos]) -> 'Bool':
+        if self.is_top():
+            return Bool.top()
+        else:
+            return Bool(bool(self.val))
 
 
-def _Float_op_output_is_float(
-        op: ty.Callable[[float, ty.Union[float, int]], float]
-) -> ty.Callable[['Float', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
-
-    def binop(
-            me: 'Float',
-            other: AbstractValue,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Float', 'NotImplemented']:
-        if isinstance(other, (Float, Int)):
-            if me.n is None or other.n is None:
-                return Float()
-            try:
-                new_n = op(me.n, other.n)  # type: ty.Optional[float]
-            except ZeroDivisionError as msg:
-                new_n = None
-                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
-
-            return Float(new_n)
-        return NotImplemented
-
-    return binop
-
-
-def _Float_op_output_is_any(
-        op: ty.Callable[[float, ty.Union[float, int]], ty.Union[float, complex]]
-) -> ty.Callable[['Float', AbstractValue, ty.Optional[Pos]], ty.Union['Float', 'NotImplemented']]:
-
-    def binop(
-            me: 'Float',
-            other: AbstractValue,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Float', 'NotImplemented']:
-        if isinstance(other, (Float, Int)):
-            if me.n is None or other.n is None:
-                return Any()
-            try:
-                new_n = op(me.n, other.n)  # type: ty.Union[float, int, complex, None]
-            except ZeroDivisionError as msg:
-                new_n = None
-                TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), src_pos)
-            except OverflowError as msg:
-                new_n = None
-                TypeCheckLogger().new_warning("E003", "OverflowError: " + str(msg), src_pos)
-
-            if isinstance(new_n, int):
-                return Int(new_n)
-            if isinstance(new_n, float):
-                return Float(new_n)
-            if new_n is not None:
-                TypeCheckLogger().new_warning(
-                    "W001",
-                    "Weird return value: I expected an int or float from operating {} with "
-                    "{} but got a {} instead".format(me.n, other.n, type(new_n)),
-                    src_pos)
-
-            return Any()
-
-        return NotImplemented
-
-    return binop
-
-
-# TODO(helq): add warning when operating with nan values
-@add_ops_to_global
 class Float(AbstractValue):
-    def __init__(self, n: ty.Optional[float] = None) -> None:
-        assert n is None or isinstance(n, float), \
-            "Float can only carry float numbers (or None). It was given `{}`".format(type(n))
-        self.n = n
+    """Float Abstract Domain. It is the simplest, the abstraction function is Float(n) and
+    the concretisation is floating numbers for n==None and {n} for n"""
+    def __init__(self, val: Optional[float] = None) -> None:
+        """
+        If val is None, then the Float value is Top
+        """
+        self.val = val
 
-    def join(self, other: AbstractValue) -> AbstractValue:
-        assert type(other) is Float, \
-            "Sorry, but I only unite with other Floats"
-        if self.n == other.n:  # type: ignore
-            return Float(self.n)
+    __top = None  # type: Float
+
+    @classmethod
+    def top(cls) -> 'Float':
+        """The top value of this Abstract Domain is Float(None)"""
+        if cls.__top is None:
+            cls.__top = Float(None)
+        return cls.__top
+
+    def is_top(self) -> bool:
+        return self.val is None
+
+    def join(self, other: 'Float') -> 'Float':
+        if self.val == other.val:
+            return self
         return Float()
-
-    def congruent_inside(self, other: 'AbstractValue') -> bool:
-        assert isinstance(other, Float) and type(other) is Float, \
-            "Sorry, but I only unite with other Floats"
-        return self.n is None \
-            or other.n is None \
-            or (math.isnan(self.n) and math.isnan(other.n)) \
-            or (math.isinf(self.n) and math.isinf(other.n)) \
-            or self.n == other.n
-
-    def __repr__(self) -> str:
-        return "Float("+repr(self.n)+")"
-
-    add_op       = _Float_op_output_is_float(float.__add__)
-    radd_op      = _Float_op_output_is_float(float.__radd__)
-    sub_op       = _Float_op_output_is_float(float.__sub__)
-    rsub_op      = _Float_op_output_is_float(float.__rsub__)
-    mul_op       = _Float_op_output_is_float(float.__mul__)
-    rmul_op      = _Float_op_output_is_float(float.__rmul__)
-    truediv_op   = _Float_op_output_is_float(float.__truediv__)
-    rtruediv_op  = _Float_op_output_is_float(float.__rtruediv__)
-    floordiv_op  = _Float_op_output_is_float(float.__floordiv__)
-    rfloordiv_op = _Float_op_output_is_float(float.__rfloordiv__)
-    mod_op       = _Float_op_output_is_float(float.__mod__)
-    rmod_op      = _Float_op_output_is_float(float.__rmod__)
-    pow_op       = _Float_op_output_is_any(float.__pow__)
-    rpow_op      = _Float_op_output_is_any(float.__rpow__)
-
-    def bool_op(
-            self,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Bool', 'NotImplemented']:
-        if self.n is None:
-            return Bool()
-        return Bool(bool(self.n))
-
-    def eq_op(
-            self,
-            other: AbstractValue,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Bool', 'NotImplemented']:
-        if isinstance(other, (Int, Float)):
-            if self.n is None or other.n is None:
-                return Bool()
-            return Bool(self.n == other.n)
-        return NotImplemented
 
     @property
     def type_name(self) -> str:
@@ -344,41 +163,124 @@ class Float(AbstractValue):
 
     @property
     def abstract_repr(self) -> str:
-        if self.n is None:
+        if self.val is None:
             return "float?"
         else:
-            return repr(self.n)
+            return repr(self.val)
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Float):
+            return False
+        if self.is_top() and other.is_top():
+            return True
+        return self.val == other.val
+
+    def __getattribute__(self, name: str) -> Any:
+        # Checking if name is 'op_OP' (eg, 'op_add')
+        op = extract_op.match(name)
+        if op and (
+                op[3] is None or  # Allowing op_add
+                op[3] in ('Int', 'Bool')  # Allowing op_add_Int
+        ):
+            if op[1] in ('add', 'sub', 'mul', 'radd', 'rsub', 'rmul'):
+                return partial(object.__getattribute__(self, '_Float__operate'), op[1])
+            if op[1] in ('truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'):
+                return partial(object.__getattribute__(self, '_Float__operate_float'), op[1])
+            if op[1] in ('rshift', 'lshift', 'rrshift', 'rlshift'):
+                return partial(object.__getattribute__(self, '_Float__operate_any'), op[1])
+
+        return object.__getattribute__(self, name)
+
+    def __operate(self, op: str, other: 'Union[Float, Int]', pos: Optional[Pos]) -> 'Float':
+        if self.val is None or other.val is None:
+            return Float.top()
+
+        new_val = getattr(float, f'__{op}__')(self.val, other.val)
+        return Float(new_val)
+
+    def __operate_float(self,
+                        op: str,
+                        other: 'Union[Float, Int]',
+                        pos: Optional[Pos]) -> 'Float':
+        if self.val is None or other.val is None:
+            return Float.top()
+
+        try:
+            new_val = getattr(float, f'__{op}__')(self.val, other.val)
+        except ZeroDivisionError as msg:
+            TypeCheckLogger().new_warning(
+                "E001", f"ZeroDivisionError: {msg}", pos)
+            return Float.top()
+
+        return Float(new_val)
+
+    def __operate_any(self,
+                      op: str,
+                      other: 'Union[Float, Int]',
+                      pos: Optional[Pos]) -> Union['Float', 'Int', None]:
+        if self.val is None or other.val is None:
+            return None
+
+        try:
+            new_val = getattr(float, f'__{op}__')(self.val, other.val)
+        except ZeroDivisionError as msg:
+            new_val = None
+            TypeCheckLogger().new_warning("E001", "ZeroDivisionError: " + str(msg), pos)
+        except OverflowError as msg:
+            new_val = None
+            TypeCheckLogger().new_warning("E003", "OverflowError: " + str(msg), pos)
+
+        if isinstance(new_val, int):
+            return Int(new_val)
+        if isinstance(new_val, float):
+            return Float(new_val)
+        if new_val is not None:
+            TypeCheckLogger().new_warning(
+                "W001",
+                "Weird return value: I expected an int or float from operating {} with "
+                "{} but got a {} instead".format(self.val, other.val, type(new_val)),
+                pos)
+
+        return None
+
+    def op_bool(self, pos: Optional[Pos]) -> 'Bool':
+        if self.is_top():
+            return Bool.top()
+        else:
+            return Bool(bool(self.val))
 
 
-@add_ops_to_global
-class Bool(Int):
-    def __init__(self, n: ty.Optional[bool] = None) -> None:
-        assert n is None or isinstance(n, bool), \
-            "Bool can only carry bools numbers (or None). It was given `{}`".format(type(n))
-        self.n = n
+class Bool(AbstractValue):
+    r"""
+    Bool Abstract Domain.
+             Top
+            /   \
+          True False
+            \   /
+            Bottom  <  this isn't implemented
+    """
+    def __init__(self, val: Optional[bool] = None) -> None:
+        """
+        If val is None, then the Bool value is Top
+        """
+        self.val = val
 
-    def __repr__(self) -> str:
-        return "Bool("+repr(self.n)+")"
+    __top = None  # type: Bool
 
-    def join(self, other: AbstractValue) -> AbstractValue:
-        assert type(other) is Bool, \
-            "Sorry, but I only unite with other Bool"
-        if self.n == other.n:  # type: ignore
-            return Bool(self.n)  # type: ignore
+    @classmethod
+    def top(cls) -> 'Bool':
+        """The top value of this Abstract Domain is Bool(None)"""
+        if cls.__top is None:
+            cls.__top = Bool(None)
+        return cls.__top
+
+    def is_top(self) -> bool:
+        return self.val is None
+
+    def join(self, other: 'Bool') -> 'Bool':
+        if self.val is other.val:
+            return self
         return Bool()
-
-    def congruent_inside(self, other: 'AbstractValue') -> bool:
-        assert isinstance(other, Bool) and type(other) is Bool, \
-            "Sorry, but I only unite with other Bools"
-        return self.n is None \
-            or other.n is None \
-            or self.n == other.n
-
-    def bool_op(
-            self,
-            src_pos: ty.Optional[Pos] = None
-    ) -> ty.Union['Bool', 'NotImplemented']:
-        return self
 
     @property
     def type_name(self) -> str:
@@ -386,28 +288,58 @@ class Bool(Int):
 
     @property
     def abstract_repr(self) -> str:
-        if self.n is None:
+        if self.val is None:
             return "bool?"
         else:
-            return repr(self.n)
+            return repr(self.val)
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Bool):
+            return False
+        if self.is_top() and other.is_top():
+            return True
+        return self.val == other.val
+
+    __getattribute__ = Int.__getattribute__
+
+    def op_bool(self, pos: Optional[Pos]) -> 'Bool':
+        return self
 
 
-# TODO(helq): THIS SHOULDN'T BE USED!!! kill it!
-class ValueAsWithStmt(object):
-    def __init__(self, val: AbstractValue) -> None:
-        self.value = val
+class NoneType(AbstractValue):
+    "None Abstract Domain. It's composed of a single Value: None"
 
-    def __enter__(self):
-        # type: (...) -> AbstractValue
-        return self.value
+    __instance = None  # type: NoneType
 
-    def __exit__(self, exc_type, exc_value, traceback  # type: ignore
-                 ) -> None:
-        pass
+    def __new__(cls) -> 'NoneType':
+        "Making sure only one object is ever created"
+        if cls.__instance is None:
+            cls.__instance = super().__new__(cls)
+        return cls.__instance
 
+    @classmethod
+    def top(cls) -> 'NoneType':
+        """The top value of this Abstract Domain"""
+        return cls()
 
-# TODO(helq): THIS SHOULDN'T BE USED!!! kill it!
-def for_loop(iterable: Iterable) -> ValueAsWithStmt:
-    # extracting type the elements in the iterable value
-    # type_elems = iterable.type_.__args__[0].__args__[0] # type: ignore
-    return ValueAsWithStmt(iterable.next())
+    def is_top(self) -> bool:
+        return True
+
+    def join(self, other: 'NoneType') -> 'NoneType':
+        return self
+
+    @property
+    def type_name(self) -> str:
+        return "NoneType"
+
+    @property
+    def abstract_repr(self) -> str:
+        return "None"
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, NoneType):
+            return True
+        return False
+
+    def op_bool(self, pos: Optional[Pos]) -> 'Bool':
+        return Bool(False)

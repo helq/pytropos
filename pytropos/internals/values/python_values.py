@@ -3,19 +3,20 @@ from functools import partial
 from typing import Union, Optional, Any
 from typing import Callable  # noqa: F401
 
-from .primitive_values import Int, Float, Bool, NoneType, AbstractValue, ops_symbols
+from .builtin_values import Int, Float, Bool, NoneType, ops_symbols
+from .abstract_value import AbstractValue
 from ..abstract_domain import AbstractDomain
 from ..errors import TypeCheckLogger
 
-from ..tools import Pos
+from ..miscelaneous import Pos
 
 
-__all__ = ['PythonValue', 'PT']
+__all__ = ['PythonValue', 'PT', 'int', 'float', 'bool', 'none']
 
 
 class PT(Enum):
     """Python types supported in pytropos"""
-    Undefined = 0
+    # Undefined = 0
     Top = 1
     # Bottom = 2
     # Primitive = 3
@@ -31,7 +32,7 @@ class PT(Enum):
 
 class PythonValue(AbstractDomain):
     def __init__(self,
-                 val: Union[AbstractValue, PT] = PT.Undefined
+                 val: Union[AbstractValue, PT] = PT.Top
                  ) -> None:
         self.val = val
 
@@ -49,13 +50,26 @@ class PythonValue(AbstractDomain):
         return self.val is PT.Top
 
     def join(self, other: 'PythonValue') -> 'PythonValue':
-        raise NotImplementedError()
+        if self.val is PT.Top or other.val is PT.Top:
+            return PythonValue.top()
+
+        assert isinstance(self.val, AbstractValue)
+        assert isinstance(other.val, AbstractValue)
+
+        if type(self.val) is type(other.val):  # noqa: E721
+            return PythonValue(self.val.join(other.val))
+        return PythonValue.top()
+
+    def __eq__(self, other: Any) -> '__builtins__.bool':
+        if not isinstance(other, PythonValue):
+            return False
+        return self.val == other.val
 
     def __repr__(self) -> str:
         if self.val is PT.Top:
             return "Top"
-        elif self.val is PT.Undefined:
-            return "Undefined"
+        # elif self.val is PT.Undefined:
+            # return "Undefined"
         else:  # self.type is PT.Top
             assert not isinstance(self.val, PT)
             return self.val.abstract_repr
@@ -65,6 +79,13 @@ class PythonValue(AbstractDomain):
         if name in ops_symbols.keys():
             return partial(self.operate, name)
         raise AttributeError(f"There is no operation for PythonValues called '{name}'")
+
+    @staticmethod
+    def __op_in_abstractvalue_overwritten(method: Any) -> '__builtins__.bool':
+        """Checks whether the method (defined in AbstractValue) was overwriten or not"""
+        notoverwritten = hasattr(method, '__qualname__') and \
+            method.__qualname__.split('.')[0] == "AbstractValue"
+        return not notoverwritten  # ie, True if method overwritten
 
     def operate(self, op: str, other: 'PythonValue', pos: Optional[Pos] = None) -> 'PythonValue':
         op_sym = ops_symbols[op]
@@ -83,8 +104,9 @@ class PythonValue(AbstractDomain):
             # Checking if op_add has been overwritten by the class that has been called
             # If it hasn't, the operation result is Top
             op_method = getattr(self.val, f'op_{op}')
-            if hasattr(op_method, '__qualname__') and \
-               op_method.__qualname__.split('.')[0] == "AbstractValue":
+            if self.__op_in_abstractvalue_overwritten(op_method):
+                newval = op_method(other.val, pos)
+            else:
                 TypeCheckLogger().new_warning(
                     "E009",
                     f"TypeError: unsupported operand type(s) for {op_sym}: "
@@ -92,8 +114,6 @@ class PythonValue(AbstractDomain):
                     pos)
 
                 newval = PT.Top
-            else:
-                newval = getattr(self.val, f'op_{op}')(other.val, pos)
 
         # If values have different type use val.op_add_OtherType(otherval)
         # or otherval.op_add_Type(val)
@@ -118,6 +138,35 @@ class PythonValue(AbstractDomain):
         if newval is None:
             return PythonValue.top()
         return PythonValue(newval)
+
+    def bool(self, pos: Optional[Pos] = None) -> 'PythonValue':
+        """method documentation"""
+        if isinstance(self.val, Bool):
+            return self
+
+        if self.val is PT.Top:
+            return PythonValue(Bool.top())
+
+        assert isinstance(self.val, AbstractValue)
+
+        op_method = self.val.op_bool
+        if self.__op_in_abstractvalue_overwritten(op_method):
+            bool_val = op_method(pos)
+
+            # Checking bool_val is a boolean!
+            if not isinstance(bool_val, Bool):
+                TypeCheckLogger().new_warning(
+                    "E010",
+                    f"TypeError: __bool__ should return bool, returned {bool_val.val.type_name}",
+                    pos)
+                return PythonValue(Bool.top())
+
+            return PythonValue(bool_val)
+
+        # TODO(helq): If the operation was not defined more stuff is to be done, like
+        # checking __len__.
+        # More info: https://docs.python.org/3/reference/datamodel.html#object.__bool__
+        return PythonValue(Bool.top())
 
 
 def int(val: Optional['__builtins__.int'] = None) -> PythonValue:

@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 """Program entry point"""
 
-from __future__ import print_function
-
-from typing import List
-from typing import Dict, Any, Optional  # noqa: F401
-from types import CodeType
-
 import argparse
 import sys
+from typing import List, TextIO
+from typing import Dict, Any, Optional  # noqa: F401
+from types import CodeType
+import traceback
 
 from pytropos import metadata
 import pytropos.debug_print as debug_print
 from pytropos.debug_print import dprint, derror
-
-import traceback
+from pytropos.internals.errors import TypeCheckLogger
 
 
 def main(argv: List[str]) -> int:
@@ -73,6 +70,13 @@ def main(argv: List[str]) -> int:
     # Highest level of verbosity is 3
     debug_print.verbosity = 3 if args_parsed.verbose > 3 else args_parsed.verbose
 
+    return run_pytropos(check_line, args_parsed.file)
+
+
+def run_pytropos(
+        check_line: Optional[int],
+        file: TextIO
+) -> int:
     dprint("Starting pytropos", verb=1)
 
     dprint("Parsing and un-parsing a python file (it should preserve all type comments)", verb=2)
@@ -82,16 +86,15 @@ def main(argv: List[str]) -> int:
         try:
             from typed_astunparse import unparse
         except ModuleNotFoundError:
-            print("Sorry! You need to install `typed_astunparse` for bigger any verbosity level.\n"
-                  "Note: If you are using python 3.7 we recommend you to install "
-                  "      `typed_astunparse` with `pip install -r git_requirements.txt` "
+            print("Sorry! You need to install `typed_astunparse` for bigger verbosity levels.\n"
+                  "Note: If you are using python 3.7 we recommend you to install \n"
+                  "      `typed_astunparse` with `pip install -r git_requirements.txt` \n"
                   "      (you can find `git_requirements.txt` in {})\n".format(metadata.url),
                   file=sys.stderr)
             exit(1)
 
-    from pytropos.translate import to_python_ast, PytroposTransformer
+    from pytropos.ast_transformer import typed_ast3_to_ast, PytroposTransformer
 
-    file = args_parsed.file
     ast_: ast3.Module
     ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
 
@@ -109,13 +112,13 @@ def main(argv: List[str]) -> int:
         dprint(unparse(newast), verb=2)
 
     import ast
-    newast_py = ast.fix_missing_locations(to_python_ast(newast))
+    newast_py = ast.fix_missing_locations(typed_ast3_to_ast(newast))
     # TODO(helq): add this lines of code for optional debugging
     # import astpretty
     # astpretty.pprint(newast_py)
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
 
-    from pytropos.internals.errors import TypeCheckLogger
+    # from pytropos.internals.errors import TypeCheckLogger
     exitcode = run_transformed_type_checking_code(newast_comp)
     TypeCheckLogger.clean_sing()
 
@@ -128,7 +131,6 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> int:
     pt_globals = {}  # type: Dict[str, Any]
 
     # from pytropos.internals.tools import NonImplementedPT
-    from pytropos.internals.errors import TypeCheckLogger
     try:
         # at the module level, locals and globals are the same
         # see: https://stackoverflow.com/questions/2904274/globals-and-locals-in-python-exec
@@ -142,13 +144,13 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> int:
         derror(TypeCheckLogger(), verb=2)
 
         derror("\nValue of variables at the moment of the failure:", metadata.url, verb=2)
-        derror(pt_globals['vau'], end='\n\n', verb=2)
+        derror(pt_globals['st'], end='\n\n', verb=2)
 
         traceback.print_exc()
         return 2
 
-    derror("\nLast computed variables values (vault):", verb=2)
-    derror(pt_globals['vau'], end='\n\n', verb=2)
+    derror("\nLast computed variables values (Store):", verb=2)
+    derror(pt_globals['st'], end='\n\n', verb=2)
 
     if len(TypeCheckLogger().warnings) > 0:
         derror(TypeCheckLogger())

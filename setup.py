@@ -195,19 +195,20 @@ def _test(pytest_args: List[str] = []) -> int:
 
     :return: exit code
     """
-    # ignore_dirs = ['tests/example_code']
+    # ignore_dirs = ['tests/inputs']
+    # ignore_files = ['tests/__init__.py', 'tests/common_strategies.py']
+    # ignore_files += glob.glob(r'tests/**/*@neomake_*\.py', recursive=True)
     # Make sure to import pytest in this function. For the reason, see here:
     # <http://pytest.org/latest/goodpractises.html#integration-with-setuptools-test-commands>  # noqa
     import pytest
     # This runs the unit tests.
     # It also runs doctest, but only on the modules in TESTS_DIRECTORY.
     return pytest.main(  # type: ignore
-        PYTEST_FLAGS +
-        [TESTS_DIRECTORY,
-         # '--ignore='+','.join(ignore_dirs),
-         # '--mypy'  # disabling default mypy argument for faster execution of tests
-         ] +
-        pytest_args)
+        PYTEST_FLAGS
+        + [TESTS_DIRECTORY]
+        # + [f"--ignore={name}" for name in ignore_dirs + ignore_files]
+        # '--mypy'  # default mypy argument disabled to make execution of tests faster
+        + pytest_args)
 
 
 def _test_all() -> int:

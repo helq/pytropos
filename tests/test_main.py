@@ -41,14 +41,13 @@ class TestMain(object):
         assert exc_info.value.code == 0
 
     @parametrize('fileargs', [  # type: ignore
-        ('tests/example_code/01-adding-mypy-types-fail.py', 1),
-        ('tests/example_code/02-number-inside-for-loop-fail.py', 1),
-        ('tests/example_code/03-number-inside-for-loop-success.py', 0),
-        ('tests/example_code/04-if-branching-fail.py', 1),
-        ('tests/example_code/05-functions-fail.py', 1),
-        ('tests/example_code/07-zero-division-fail.py', 1),
+        ('tests/inputs/01-zero-division-fail.py', 1),
     ])
     def test_fail_and_success_in_examples(self, fileargs: Tuple[str, int], capsys: Any) -> None:
+        # Cleaning type errors
+        TypeCheckLogger.clean_sing()
+        assert len(TypeCheckLogger().warnings) == 0
+
         filepath, expected_exit = fileargs
 
         # with capsys.disabled():
@@ -72,7 +71,7 @@ class TestMain(object):
         out, err = capsys.readouterr()
 
         dir_, name = path.split(filepath)
-        output_path = path.join(dir_, 'output', path.splitext(name)[0]+'.txt')
+        output_path = path.join(dir_, 'outputs', path.splitext(name)[0]+'.txt')
         expected_output = open(output_path, 'r').read()
 
         assert out == expected_output

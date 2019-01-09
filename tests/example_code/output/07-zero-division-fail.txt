@@ -1,1 +1,0 @@
-tests/example_code/07-zero-division-fail.py:3:4: E001 ZeroDivisionError: float division by zero

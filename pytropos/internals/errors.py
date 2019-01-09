@@ -3,7 +3,7 @@ This module defines what a typing error contains. Any error (or warning) found a
 typechecking should be added either to `errors` or `warnings`.
 """
 
-from .tools import Pos, Singleton
+from .miscelaneous import Pos, Singleton
 
 from typing import Optional
 from typing import List, Tuple  # noqa: F401
@@ -18,6 +18,7 @@ WarningType = str
 # W0__ : Builtin warning, something may fail
 # E0__ : Builtin error, the operation will fail
 # W2__ : A warning on an attribute that doesn't exists
+# W3__ : A warning that is not builtin but useful in some cases
 # W5__ : A warning with some external library (user defined)
 # E5__ : Error with some external library (user defined)
 # NOIDEA : Error not yet classified
@@ -29,6 +30,7 @@ WarningType = str
 # E002: ValueError
 # E003: OverflowError
 # E009: TypeError: unsopported operand type(s)
+# E010: TypeError: __bool__ should return bool, returned ___
 
 # W201: Global variable not set
 # W202: Local variable not set
