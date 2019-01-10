@@ -61,7 +61,8 @@ class Store(AbstractDomain):
             src_pos
         )
 
-        return PythonValue.top()
+        toret = self._global_scope[key] = PythonValue.top()
+        return toret
 
     def __setitem__(self, key_: Union[str, Tuple[str, Pos]], value: PythonValue) -> None:
         if not isinstance(key_, tuple):

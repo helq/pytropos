@@ -1,0 +1,1 @@
+tests/inputs/02-if-test.py:3:3: W201 Global variable `d` isn't set

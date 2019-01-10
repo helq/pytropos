@@ -6,7 +6,7 @@ from .abstract_value import AbstractValue
 from ..errors import TypeCheckLogger
 from ..miscelaneous import Pos
 
-__all__ = ['Int', 'Float']
+__all__ = ['Int', 'Float', 'Bool', 'NoneType']
 
 
 ops_symbols = {

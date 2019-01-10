@@ -3,9 +3,9 @@ from typing import Dict, Type  # noqa: F401
 
 from typed_ast import ast3
 
-from .miscelaneous import AstAttributeUnknown
+from .miscelaneous import AstTransformerError
 
-__all__ = ['PytroposTransformer']
+__all__ = ['PytroposTransformer', 'AstTransformerError']
 
 VisitorOutput = Union[List[ast3.AST], ast3.AST, None]
 
@@ -39,6 +39,10 @@ compopt = {
     # ast3.In,
     # ast3.NotIn
 }  # type: Dict[Type[ast3.cmpop], str]
+
+no_need_to_transform = set(operations).union(compopt).union([  # type: ignore
+    ast3.alias
+])
 
 
 def pos_as_tuple(node: ast3.expr) -> Optional[ast3.Tuple]:
@@ -97,10 +101,10 @@ class PytroposTransformer(ast3.NodeTransformer):
             return getattr(self, method_name)(node)  # type: ignore
 
         # Ignoring supported operators (like Div, Mul, ...)
-        if node_type in set(operations).union(compopt):  # type: ignore
+        if node_type in no_need_to_transform:
             return node
         else:
-            raise AstAttributeUnknown(
+            raise AstTransformerError(
                 f"Pytropos doesn't support {node_type.__name__!r} yet. "
                 "Sorry for the inconvinience :S"
             )
@@ -150,7 +154,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         else:
             # TODO(helq): allow arbitrary expr to be set at the left side
             # All there is to do is to clone node.target and modify ctx from Store to Load
-            raise AstAttributeUnknown("Error: Sorry I don't support left operands that "
+            raise AstTransformerError("Error: Sorry I don't support left operands that "
                                       "are not a name at the left side of an += (or *=, ...)")
 
         new_target = self.visit(node.target)
@@ -183,7 +187,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                 args=[ast3.Num(n=node.n)], keywords=[])
             return new_v
         else:
-            raise AstAttributeUnknown(
+            raise AstTransformerError(
                 f"Number of type {type(node.n)} isn't supported by pytropos. Sorry :S"
             )
 
@@ -199,7 +203,7 @@ class PytroposTransformer(ast3.NodeTransformer):
 
         op_type = type(node.ops[0])
         if op_type not in compopt:
-            raise AstAttributeUnknown(
+            raise AstTransformerError(
                 f"Pytropos doesn't support the comparison {type(op_type)} yet, sorry :("
             )
 
@@ -232,7 +236,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         self.generic_visit(node)
         op_type = type(node.op)
         if op_type not in operations:
-            raise AstAttributeUnknown(
+            raise AstTransformerError(
                 f"Pytropos doesn't support the operation {type(op_type)} yet, sorry :("
             )
 
@@ -351,7 +355,8 @@ class PytroposTransformer(ast3.NodeTransformer):
             ast3.FunctionDef(
                 name='if_',
                 args=ast3.arguments(
-                    args=[], vararg=None, kwonlyargs=[],
+                    args=[ast3.arg(arg='st', annotation=None)],
+                    vararg=None, kwonlyargs=[],
                     kw_defaults=[], kwarg=None, defaults=[]),
                 body=new_body,
                 decorator_list=[],
@@ -367,7 +372,8 @@ class PytroposTransformer(ast3.NodeTransformer):
                 ast3.FunctionDef(
                     name='else_',
                     args=ast3.arguments(
-                        args=[], vararg=None, kwonlyargs=[],
+                        args=[ast3.arg(arg='st', annotation=None)],
+                        vararg=None, kwonlyargs=[],
                         kw_defaults=[], kwarg=None, defaults=[]),
                     body=new_orelse,
                     decorator_list=[],
@@ -375,7 +381,8 @@ class PytroposTransformer(ast3.NodeTransformer):
                 )
             )
         new_node.append(
-            ast3.Expr(
+            ast3.Assign(
+                targets=[ast3.Name(id='st', ctx=ast3.Store())],
                 value=ast3.Call(
                     func=ast3.Attribute(
                         value=ast3.Name(id='pt', ctx=ast3.Load()),
@@ -383,10 +390,12 @@ class PytroposTransformer(ast3.NodeTransformer):
                         ctx=ast3.Load(),
                     ),
                     args=[
+                        ast3.Name(id='st', ctx=ast3.Load()),
                         ast3.Name(id='if_qstn', ctx=ast3.Load()),
                         ast3.Name(id='if_', ctx=ast3.Load()),
                         ast3.Name(id='else_', ctx=ast3.Load())
                     ] if orelse else [
+                        ast3.Name(id='st', ctx=ast3.Load()),
                         ast3.Name(id='if_qstn', ctx=ast3.Load()),
                         ast3.Name(id='if_', ctx=ast3.Load())
                     ],
@@ -423,6 +432,6 @@ class PytroposTransformer(ast3.NodeTransformer):
                 keywords=[],
             )
         else:
-            raise AstAttributeUnknown(
+            raise AstTransformerError(
                 f"Pytropos doesn't recognise {type(node.value)} as a constant. Sorry"
             )

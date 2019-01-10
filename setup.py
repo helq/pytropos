@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
+import re
 import os
 import sys
 import imp
@@ -172,11 +173,13 @@ def _lint() -> int:
     # just fork off another process to do it.
 
     project_python_files = [filename for filename in get_project_files()
-                            if filename.endswith(b'.py')]
+                            if filename.endswith(b'.py')
+                            and not re.match('tests/inputs/', filename.decode())]
     common_args = [b'--exclude=docs/**']
     if use_flake8:
         call_args = \
             [b'flake8'] \
+            + common_args \
             + project_python_files
     else:
         call_args = \

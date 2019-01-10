@@ -4,7 +4,7 @@ from typed_ast import ast3
 
 from typing import Union
 
-__all__ = ["AstAttributeUnknown", 'pprint_ast_expr', 'typed_ast3_to_ast']
+__all__ = ["AstTransformerError", 'pprint_ast_expr', 'typed_ast3_to_ast']
 
 # trick, use:
 # > from pytropos.ast_transformer.miscelaneous import pprint_ast_expr
@@ -15,7 +15,7 @@ __all__ = ["AstAttributeUnknown", 'pprint_ast_expr', 'typed_ast3_to_ast']
 # > ast3.dump(ast3.parse('expr').body[0])
 
 
-class AstAttributeUnknown(Exception):
+class AstTransformerError(Exception):
     pass
 
 
@@ -31,7 +31,7 @@ def typed_ast3_to_ast(tree: ast3.AST) -> 'ast.AST':
             return [typed_ast3_to_ast(e) for e in v]
         elif isinstance(v, (str, int, float)) or v is None:
             return v
-        raise AstAttributeUnknown(
+        raise AstTransformerError(
             "typed_ast3_to_ast: The type '{}' is unknown to me".format(type(v)))
     return helper(tree)  # type: ignore
 
