@@ -1,3 +1,3 @@
-from .execute import runIf
+from .execute import runIf, runWhile
 
-__all__ = ['runIf']
+__all__ = ['runIf', 'runWhile']

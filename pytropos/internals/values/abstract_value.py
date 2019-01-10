@@ -19,6 +19,10 @@ class AbstractValue(AbstractDomain):
         """Returns the new value that captures the other two (self and other)"""
         raise NotImplementedError()
 
+    def widen_op(self, other: Any) -> 'Tuple[Any, bool]':
+        """Implement this method if the AbstractValue requires a widening operator"""
+        raise NotImplementedError()
+
     @property
     @abstractmethod
     def type_name(self) -> str:
@@ -69,6 +73,13 @@ class AbstractValue(AbstractDomain):
     op_mod = op_OP
     op_lshift = op_OP
     op_rshift = op_OP
+
+    op_eq = op_OP
+    op_ne = op_OP
+    op_lt = op_OP
+    op_le = op_OP
+    op_gt = op_OP
+    op_ge = op_OP
 
     def op_bool(self, pos: Optional[Pos]) -> Any:
         """

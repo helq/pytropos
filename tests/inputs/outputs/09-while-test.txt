@@ -1,0 +1,1 @@
+tests/inputs/09-while-test.py:4:10: W201 Global variable `n` isn't set

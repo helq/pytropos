@@ -125,3 +125,31 @@ class Store(AbstractDomain):
                     new_store._global_scope[key] = val1.join(val2)
 
         return new_store
+
+    def widen_op(self, other: 'Store') -> 'Tuple[Store, bool]':
+        """
+        Works like `.join` but it is warrantied to terminate if it is applied over and
+        over increasing values.
+        """
+        keys = set(self._global_scope).union(other._global_scope)
+        common_keys = set(self._global_scope).intersection(other._global_scope)
+        new_store = Store()
+        fix_point = True
+
+        for key in keys:
+            if key not in common_keys:
+                new_store._global_scope[key] = PythonValue.top()
+                fix_point = False
+            else:
+                val1 = self._global_scope[key]
+                val2 = other._global_scope[key]
+
+                # if the same object is saved in both Stores, don't copy it!
+                if val1 is val2:
+                    new_store._global_scope[key] = val1
+                else:
+                    new_store._global_scope[key], fix = val1.widen_op(val2)
+                    if not fix:
+                        fix_point = False
+
+        return new_store, fix_point

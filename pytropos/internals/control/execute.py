@@ -8,7 +8,10 @@ if TYPE_CHECKING:
     from typing import Callable, Optional  # noqa: F401
 
 
-__all__ = ['runIf']
+__all__ = ['runIf', 'runWhile']
+
+
+MAX_LOOPS = 100
 
 
 def runIf(
@@ -34,3 +37,43 @@ def runIf(
         return if_(store)
     else:
         return else_(store) if else_ else store
+
+
+def runWhile(
+        store: Store,
+        while_qst: 'Callable[[Store], PythonValue]',
+        while_: 'Callable[[Store], Store]'
+) -> 'Store':
+    """
+    Runs the code ten times, if the condition doesn't become False, then tries to find a
+    fix point using `widen_op`.
+    """
+
+    for i in range(MAX_LOOPS):
+        val = while_qst(store).bool()
+        assert isinstance(val.val, Bool)
+        bool_val = val.val
+
+        if bool_val.is_top():  # Bool(?)
+            break
+        elif bool_val.val is False:
+            return store
+        # else bool_val is True the execution of while_ should continue
+
+        store = while_(store)
+
+    # If I arrived here, I know that 10 loops wheren't enough or bool_var is Bool(?),
+    # either way we need to find a fix point
+    fix_point = False
+    while not fix_point:
+        new_store = while_(store.copy())  # TODO(helq): change for .copy_soft
+        while_qst(store)
+        store, fix_point = store.widen_op(new_store)  # TODO(helq): change for widen_op_destructive
+
+    # TODO(helq): after the widen_op is applied, use narrow_op!
+    # while not fix_point:
+    #     new_store = while_(store.copy())
+    #     while_qst(store)
+    #     store, fix_point = store.narrow_op(new_store)
+
+    return store

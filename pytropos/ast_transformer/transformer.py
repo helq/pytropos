@@ -28,12 +28,12 @@ operations = {
 }
 
 compopt = {
-    # ast3.Eq: 'eq',
-    # ast3.NotEq,
-    # ast3.Lt,
-    # ast3.LtE,
-    # ast3.Gt,
-    # ast3.GtE,
+    ast3.Eq: 'eq',
+    ast3.NotEq: 'ne',
+    ast3.Lt: 'lt',
+    ast3.LtE: 'le',
+    ast3.Gt: 'gt',
+    ast3.GtE: 'ge',
     # ast3.Is,
     # ast3.IsNot,
     # ast3.In,
@@ -336,7 +336,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         > def else_(st):
         >     body2
         >     return st
-        > pt.runIf(st, if_qstn, if_, else_)
+        > st = pt.runIf(st, if_qstn, if_, else_)
         """
         new_test = self.visit(node.test)
         new_body = [self.visit(stmt) for stmt in node.body]
@@ -403,6 +403,72 @@ class PytroposTransformer(ast3.NodeTransformer):
                 )
             )
         )
+        return new_node  # type: ignore
+
+    def visit_While(self, node: ast3.While) -> VisitorOutput:
+        """
+        Converts:
+        > while question:
+        >     body
+        into:
+        > if_qstn = TRANSFORMED(question)
+        > def while_qst(st):
+        >     return question
+        > def while_(st):
+        >     body
+        >     return st
+        > st = pt.runWhile(st, while_qstn, while_)
+        """
+        if node.orelse:
+            raise AstTransformerError(
+                f"Pytropos doesn't support else statement in while loop yet, sorry :("
+            )
+
+        new_test = self.visit(node.test)
+        new_body = [self.visit(stmt) for stmt in node.body]
+
+        new_body.append(ast3.Return(
+            value=ast3.Name(id='st', ctx=ast3.Load()),
+        ))
+
+        new_node = [
+            ast3.FunctionDef(
+                name='while_qst',
+                args=ast3.arguments(
+                    args=[ast3.arg(arg='st', annotation=None)],
+                    vararg=None, kwonlyargs=[],
+                    kw_defaults=[], kwarg=None, defaults=[]),
+                body=[ast3.Return(value=new_test)],
+                decorator_list=[],
+                returns=None,
+            ),
+            ast3.FunctionDef(
+                name='while_',
+                args=ast3.arguments(
+                    args=[ast3.arg(arg='st', annotation=None)],
+                    vararg=None, kwonlyargs=[],
+                    kw_defaults=[], kwarg=None, defaults=[]),
+                body=new_body,
+                decorator_list=[],
+                returns=None,
+            ),
+            ast3.Assign(
+                targets=[ast3.Name(id='st', ctx=ast3.Store())],
+                value=ast3.Call(
+                    func=ast3.Attribute(
+                        value=ast3.Name(id='pt', ctx=ast3.Load()),
+                        attr='runWhile',
+                        ctx=ast3.Load(),
+                    ),
+                    args=[
+                        ast3.Name(id='st', ctx=ast3.Load()),
+                        ast3.Name(id='while_qst', ctx=ast3.Load()),
+                        ast3.Name(id='while_', ctx=ast3.Load())
+                    ],
+                    keywords=[],
+                )
+            )
+        ]
         return new_node  # type: ignore
 
     def visit_NameConstant(self, node: ast3.NameConstant) -> VisitorOutput:

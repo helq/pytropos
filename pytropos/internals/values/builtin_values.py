@@ -23,6 +23,11 @@ ops_symbols = {
     # 'and': '&',
     # 'xor': '^',
     # 'or': '|',
+
+    'lt': '<',
+    'le': '<=',
+    'gt': '>',
+    'ge': '>=',
 }
 
 extract_op = re.compile(r'op_([a-zA-Z]*)(_([a-zA-Z]*))?$')
@@ -72,6 +77,11 @@ class Int(AbstractValue):
             return True
         return self.val == other.val
 
+    _int_to_int_ops = set(['add', 'sub', 'mul', 'radd', 'rsub', 'rmul'])
+    _int_to_bool_ops = set(['eq', 'ne', 'lt', 'le', 'gt', 'ge'])
+    _int_to_int_ops_shift = set(['lshift', 'rshift', 'rlshift', 'rrshift'])
+    _int_to_int_ops_div = set(['truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'])
+
     def __getattribute__(self, name: str) -> Any:
         # Checking if name is 'op_OP' (eg, 'op_add')
         op = extract_op.match(name)
@@ -79,23 +89,32 @@ class Int(AbstractValue):
             not op[3]  # allowing op_add
             or op[3] in ('Int', 'Bool')  # allowing op_add_Bool
         ):
-            if op[1] in ('add', 'sub', 'mul', 'radd', 'rsub', 'rmul'):
-                return partial(Int.__operate, self, op[1])
-            if op[1] in ('lshift', 'rshift', 'rlshift', 'rrshift'):
-                return partial(Int.__operate_shift, self, op[1])
-            if op[1] in ('truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'):
-                return partial(Int.__operate_div, self, op[1])
+            if op[1] in Int._int_to_int_ops:
+                return partial(Int.__operate_int_to_int, self, op[1])
+            if op[1] in Int._int_to_bool_ops:
+                return partial(Int.__operate_int_to_bool, self, op[1])
+            if op[1] in Int._int_to_int_ops_shift:
+                return partial(Int.__operate_int_to_int_shift, self, op[1])
+            if op[1] in Int._int_to_int_ops_div:
+                return partial(Int.__operate_int_div, self, op[1])
 
         return object.__getattribute__(self, name)
 
-    def __operate(self, op: str, other: 'Int', pos: Optional[Pos]) -> 'Int':
+    def __operate_int_to_int(self, op: str, other: 'Int', pos: Optional[Pos]) -> 'Int':
         if self.val is None or other.val is None:
             return Int.top()
 
         new_val = getattr(int, f"__{op}__")(self.val, other.val)
         return Int(new_val)
 
-    def __operate_shift(self, op: str, other: 'Int', pos: Optional[Pos]) -> 'Int':
+    def __operate_int_to_bool(self, op: str, other: 'Int', pos: Optional[Pos]) -> 'Bool':
+        if self.val is None or other.val is None:
+            return Bool.top()
+
+        new_val = getattr(int, f"__{op}__")(self.val, other.val)
+        return Bool(new_val)
+
+    def __operate_int_to_int_shift(self, op: str, other: 'Int', pos: Optional[Pos]) -> 'Int':
         if self.val is None or other.val is None:
             return Int.top()
 
@@ -108,10 +127,11 @@ class Int(AbstractValue):
 
         return Int(new_val)
 
-    def __operate_div(self,
-                      op: str,
-                      other: 'Int',
-                      pos: Optional[Pos]) -> Union['Int', 'Float', None]:
+    def __operate_int_div(
+            self,
+            op: str,
+            other: 'Int',
+            pos: Optional[Pos]) -> Union['Int', 'Float', None]:
         if self.val is None or other.val is None:
             return None
 
@@ -175,6 +195,11 @@ class Float(AbstractValue):
             return True
         return self.val == other.val
 
+    _to_floats_ops = set(['add', 'sub', 'mul', 'radd', 'rsub', 'rmul'])
+    _to_bools_ops = set(['eq', 'ne', 'lt', 'le', 'gt', 'ge'])
+    _to_floats_div_ops = set(['truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'])
+    _to_any_shift_ops = set(['rshift', 'lshift', 'rrshift', 'rlshift'])
+
     def __getattribute__(self, name: str) -> Any:
         # Checking if name is 'op_OP' (eg, 'op_add')
         op = extract_op.match(name)
@@ -182,26 +207,47 @@ class Float(AbstractValue):
                 op[3] is None or  # Allowing op_add
                 op[3] in ('Int', 'Bool')  # Allowing op_add_Int
         ):
-            if op[1] in ('add', 'sub', 'mul', 'radd', 'rsub', 'rmul'):
-                return partial(object.__getattribute__(self, '_Float__operate'), op[1])
-            if op[1] in ('truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'):
-                return partial(object.__getattribute__(self, '_Float__operate_float'), op[1])
-            if op[1] in ('rshift', 'lshift', 'rrshift', 'rlshift'):
-                return partial(object.__getattribute__(self, '_Float__operate_any'), op[1])
+            if op[1] in self._to_floats_ops:
+                return partial(Float.__operate_to_floats, self, op[1])
+            if op[1] in self._to_bools_ops:
+                return partial(Float.__operate_to_bools, self, op[1])
+            if op[1] in self._to_floats_div_ops:
+                return partial(Float.__operate_to_floats_div, self, op[1])
+            if op[1] in self._to_any_shift_ops:
+                return partial(Float.__operate_to_any, self, op[1])
 
         return object.__getattribute__(self, name)
 
-    def __operate(self, op: str, other: 'Union[Float, Int]', pos: Optional[Pos]) -> 'Float':
+    def __operate_to_floats(
+            self,
+            op: str,
+            other: 'Union[Float, Int]',
+            pos: Optional[Pos]
+    ) -> 'Float':
         if self.val is None or other.val is None:
             return Float.top()
 
         new_val = getattr(float, f'__{op}__')(self.val, other.val)
         return Float(new_val)
 
-    def __operate_float(self,
-                        op: str,
-                        other: 'Union[Float, Int]',
-                        pos: Optional[Pos]) -> 'Float':
+    def __operate_to_bools(
+            self,
+            op: str,
+            other: 'Union[Float, Int]',
+            pos: Optional[Pos]
+    ) -> 'Bool':
+        if self.val is None or other.val is None:
+            return Bool.top()
+
+        new_val = getattr(float, f'__{op}__')(self.val, other.val)
+        return Bool(new_val)
+
+    def __operate_to_floats_div(
+            self,
+            op: str,
+            other: 'Union[Float, Int]',
+            pos: Optional[Pos]
+    ) -> 'Float':
         if self.val is None or other.val is None:
             return Float.top()
 
@@ -214,10 +260,12 @@ class Float(AbstractValue):
 
         return Float(new_val)
 
-    def __operate_any(self,
-                      op: str,
-                      other: 'Union[Float, Int]',
-                      pos: Optional[Pos]) -> Union['Float', 'Int', None]:
+    def __operate_to_any(
+            self,
+            op: str,
+            other: 'Union[Float, Int]',
+            pos: Optional[Pos]
+    ) -> 'Union[Float, Int, None]':
         if self.val is None or other.val is None:
             return None
 
@@ -340,6 +388,27 @@ class NoneType(AbstractValue):
         if isinstance(other, NoneType):
             return True
         return False
+
+    def __getattribute__(self, name: str) -> Any:
+        # Checking if name is 'op_OP' (eg, 'op_add')
+        op = extract_op.match(name)
+
+        if op and (
+                op[1] == 'ne' or  # None.ne(None) => False
+                (op[1] == 'eq' and op[3] in ('Int', 'Bool', 'Float'))  # None.ne(5) => False
+        ):
+            return partial(NoneType.__operate_ret_false, self)
+
+        return object.__getattribute__(self, name)
+
+    def op_eq(self, other: 'NoneType', pos: Optional[Pos]) -> 'Bool':  # type: ignore
+        return Bool(True)
+
+    def __operate_ret_false(
+            self,
+            other: AbstractValue,
+            pos: Optional[Pos]) -> Bool:
+        return Bool(False)
 
     def op_bool(self, pos: Optional[Pos]) -> 'Bool':
         return Bool(False)

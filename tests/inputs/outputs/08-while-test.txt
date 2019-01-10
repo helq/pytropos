@@ -1,0 +1,1 @@
+tests/inputs/08-while-test.py:4:4: W201 Global variable `j` isn't set

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from typing import Any
+from typing import Tuple  # noqa: F401
 
 
 class AbstractDomain(ABC):
@@ -12,7 +13,7 @@ class AbstractDomain(ABC):
     Additional operations to the Lattice are:
     - Join
     - Merge
-    - Widenning Operator (optional)
+    - Widening Operator (optional)
     - Narrowing Operator (optional)
     """
 
@@ -53,10 +54,10 @@ class AbstractDomain(ABC):
     #     """Performs 'Greatest Lower Bound' operation between self and other"""
     #     raise NotImplementedError()
 
-    def widen_op(self, other: Any) -> Any:
+    def widen_op(self, other: Any) -> 'Tuple[Any, bool]':
         """Performs the Widen operation on self and other"""
         raise NotImplementedError()
 
-    def narrow_op(self, other: Any) -> Any:
+    def narrow_op(self, other: Any) -> 'Tuple[Any, bool]':
         """Performs the Narrow operation on self and other"""
         raise NotImplementedError()

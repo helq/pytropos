@@ -1,7 +1,7 @@
 from enum import Enum
 from functools import partial
 from typing import Union, Optional, Any
-from typing import Callable  # noqa: F401
+from typing import Callable, Tuple  # noqa: F401
 
 from .builtin_values import Int, Float, Bool, NoneType, ops_symbols
 from .abstract_value import AbstractValue
@@ -60,7 +60,36 @@ class PythonValue(AbstractDomain):
             return PythonValue(self.val.join(other.val))
         return PythonValue.top()
 
+    def widen_op(self, other: 'PythonValue') -> 'Tuple[PythonValue, __builtins__.bool]':
+        # eg: PythonValue(Int(5)) == PythonValue(Int(5))
+        if self == other:
+            return self, True
+
+        # eg: PythonValue(PT.Top) and PythonValue(Int(5))
+        if self.val is PT.Top or other.val is PT.Top:
+            return PythonValue.top(), False
+
+        # eg: PythonValue(Float(3)) and PythonValue(Int(5))
+        if type(self.val) is not type(other.val):  # noqa: E721
+            return PythonValue.top(), False
+
+        assert isinstance(self.val, AbstractValue)
+        assert isinstance(other.val, AbstractValue)
+
+        # eg: PythonValue(List([3])) and PythonValue(List([3,5]))
+        if self.__op_in_abstractvalue_overwritten(self.val.widen_op):
+            new_val, fix = self.val.widen_op(other.val)
+        # eg: PythonValue(Int(3)) and PythonValue(Int(5))
+        else:
+            new_val = self.val.join(other.val)
+            # TODO(helq): This is not how a widening operator is defined, actually we
+            # compare with <= not == !!!
+            fix = new_val == self.val
+        return PythonValue(new_val), fix
+
     def __eq__(self, other: Any) -> '__builtins__.bool':
+        if self is other:
+            return True
         if not isinstance(other, PythonValue):
             return False
         return self.val == other.val

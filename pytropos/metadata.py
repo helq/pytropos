@@ -6,7 +6,7 @@ Experimental project to try to typecheck operations with tensors for python.
 
 # The package name, which is also the "UNIX name" for the project.
 package = 'pytropos'
-project = "Specialized linter for tensor/array/matrix operations"
+project = "Abstract Interpretation-based linter for python"
 project_no_spaces = project.replace(' ', '')
 version = '0.0.1'
 description = 'Can check for correctness of tensor operations in numpy'
