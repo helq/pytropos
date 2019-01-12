@@ -1,3 +1,7 @@
+# Git-hooks related files
+.commit
+no_docs_generation
+
 # Emacs rope configuration
 .ropeproject
 .project

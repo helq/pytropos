@@ -72,12 +72,10 @@ class PytroposTransformer(ast3.NodeTransformer):
         self.cursorline = cursorline
 
     def _show_store_contents_expr(self) -> ast3.Expr:
+        """Returns an ast3.Expr which prints the value of the store in the screen. Useful
+        for debugging.
         """
-        Returns an ast3.Expr which prints the value of the store in the screen. Useful for
-        debugging.
-
-        > print(st)
-        """
+        # print(st)
         return ast3.Expr(
             value=ast3.Call(
                 func=ast3.Name(id='print', ctx=ast3.Load()),
@@ -87,11 +85,12 @@ class PytroposTransformer(ast3.NodeTransformer):
         )
 
     def visit(self, node: ast3.AST) -> VisitorOutput:
-        """
-        Overwriting `visit` to:
-        - allow visit_stmt
+        """Overwriting `visit` to:
+
+        - allow it `visit_stmt`
         - throw error if a transformation hasn't been defined for a node type
         """
+
         if isinstance(node, ast3.stmt):
             return self.visit_stmt(node)
 
@@ -133,11 +132,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         return visited
 
     def visit_AugAssign(self, node: ast3.AugAssign) -> VisitorOutput:
-        """
-        Converting:
-        > A *= X+B
-        into
-        > A = A*(X+B)
+        """Converts `A (op)= Statement` into `A = A (op) (Statement)`
         """
         if isinstance(node.target, ast3.Name):
             left_value = ast3.Name(
@@ -171,11 +166,9 @@ class PytroposTransformer(ast3.NodeTransformer):
             type_comment=None)  # TODO(helq): don't ignore the type comment!
 
     def visit_Num(self, node: ast3.Num) -> VisitorOutput:
-        """
-        Converting:
-        > 3
-        into:
-        pt.int(3)
+        """Wraps a number into a Pytropos type.
+
+        Example: given the number `3` returns `pt.int(3)`
         """
         if isinstance(node.n, (int, float)):
             attr = 'int' if isinstance(node.n, int) else 'float'
@@ -192,12 +185,8 @@ class PytroposTransformer(ast3.NodeTransformer):
             )
 
     def visit_Compare(self, node: ast3.Compare) -> VisitorOutput:
-        """
-        Converting:
-        > ABC == MNO
-        into:
-        > ABC.eq(MNO)
-        """
+        "Transforms a comparision into a function call. E.g. `ABC == MNO` into `ABC.eq(MNO)`"
+
         assert len(node.ops) == 1, "Pytropos only supports comparisions of two values at the time"
         self.generic_visit(node)
 
@@ -227,12 +216,8 @@ class PytroposTransformer(ast3.NodeTransformer):
         return new_v
 
     def visit_BinOp(self, node: ast3.BinOp) -> VisitorOutput:
-        """
-        Converting:
-        > ABC + MNO
-        into:
-        > ABC.add(MNO, pos=...)
-        """
+        "Transforms a binary operation into a function call. E.g. `ABC == MNO` into `ABC.eq(MNO)`"
+
         self.generic_visit(node)
         op_type = type(node.op)
         if op_type not in operations:
@@ -272,12 +257,8 @@ class PytroposTransformer(ast3.NodeTransformer):
         return new_node
 
     def visit_Name(self, node: ast3.Name) -> VisitorOutput:
-        """
-        Convertion:
-        > var
-        into:
-        > st[('var', ...)]
-        """
+        "Transforms a name lookup into a dictionary lookup. E.g. `var` > `st[('var', ...)]`"
+
         pos = pos_as_tuple(node)
         if pos is not None:
             varname = ast3.Tuple(
@@ -298,9 +279,8 @@ class PytroposTransformer(ast3.NodeTransformer):
             ctx=node.ctx)
 
     def visit_Module(self, node: ast3.Module) -> VisitorOutput:
-        """
-        Adding the necessary pumbling for the transformed module to work
-        """
+        "Adding the necessary pumbling for the transformed module to work"
+
         cursorline_at_end = \
             self.cursorline is not None \
             and len(node.body) > 0 \
@@ -322,21 +302,25 @@ class PytroposTransformer(ast3.NodeTransformer):
         return node
 
     def visit_If(self, node: ast3.If) -> VisitorOutput:
-        """
-        Converts:
-        > if question:
-        >     body1
-        > else:
-        >     body2
-        into:
-        > if_qstn = TRANSFORMED(question)
-        > def if_(st):
-        >     body1
-        >     return st
-        > def else_(st):
-        >     body2
-        >     return st
-        > st = pt.runIf(st, if_qstn, if_, else_)
+        """Transforms an if statement into what Pytropos understands:
+
+        For example, it converts::
+
+            if question:
+                body1
+            else:
+                body2
+
+        into::
+
+            if_qstn = TRANSFORMED(question)
+            def if_(st):
+                body1
+                return st
+            def else_(st):
+                body2
+                return st
+            st = pt.runIf(st, if_qstn, if_, else_)
         """
         new_test = self.visit(node.test)
         new_body = [self.visit(stmt) for stmt in node.body]
@@ -406,18 +390,22 @@ class PytroposTransformer(ast3.NodeTransformer):
         return new_node  # type: ignore
 
     def visit_While(self, node: ast3.While) -> VisitorOutput:
-        """
-        Converts:
-        > while question:
-        >     body
-        into:
-        > if_qstn = TRANSFORMED(question)
-        > def while_qst(st):
-        >     return question
-        > def while_(st):
-        >     body
-        >     return st
-        > st = pt.runWhile(st, while_qstn, while_)
+        """Transforms an if statement into what Pytropos understands:
+
+        For example, it converts::
+
+            while question:
+                body
+
+        into::
+
+            if_qstn = TRANSFORMED(question)
+            def while_qst(st):
+                return question
+            def while_(st):
+                body
+                return st
+            st = pt.runWhile(st, while_qstn, while_)
         """
         if node.orelse:
             raise AstTransformerError(
@@ -472,11 +460,17 @@ class PytroposTransformer(ast3.NodeTransformer):
         return new_node  # type: ignore
 
     def visit_NameConstant(self, node: ast3.NameConstant) -> VisitorOutput:
-        """
-        Converting:
-        > True             or    None
-        into:
-        > pt.bool(True)    or    pt.none()
+        """Transforms name constants (None, True, False) into Pytropos values.
+
+        For example, it converts::
+
+            True
+            None
+
+        into::
+
+            pt.bool(True)
+            pt.none()
         """
         if isinstance(node.value, bool):
             return ast3.Call(

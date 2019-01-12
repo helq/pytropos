@@ -214,10 +214,13 @@ def bool(val: Optional['__builtins__.bool'] = None) -> PythonValue:
 
 
 def __createNonePV() -> Any:
-    """
-    Returns a NoneType wrapped into a PythonValue
+    """Building a single wrapped value for NoneType
+
     Why waste memory on a class that contains a unique element.
+
     Creating an element of type NoneType and returning it every single time.
+
+    :return: a NoneType wrapped into a PythonValue
     """
     none = PythonValue(NoneType())
 

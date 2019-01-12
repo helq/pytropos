@@ -6,11 +6,19 @@ Subpackages
 
 .. toctree::
 
+    pytropos.ast_transformer
     pytropos.internals
-    pytropos.libs
 
 Submodules
 ----------
+
+pytropos.debug\_print module
+----------------------------
+
+.. automodule:: pytropos.debug_print
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 pytropos.main module
 --------------------
@@ -24,14 +32,6 @@ pytropos.metadata module
 ------------------------
 
 .. automodule:: pytropos.metadata
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-pytropos.translate module
--------------------------
-
-.. automodule:: pytropos.translate
     :members:
     :undoc-members:
     :show-inheritance:

@@ -21,9 +21,7 @@ class AstTransformerError(Exception):
 
 def typed_ast3_to_ast(tree: ast3.AST) -> 'ast.AST':
     def helper(v: Any) -> Any:
-        """
-        Takes a typed_ast.AST and converts it into a python ast.AST
-        """
+        "Takes a `typed_ast.AST` and converts it into a python ast.AST"
         if isinstance(v, ast3.AST):
             cls = getattr(ast, type(v).__name__)
             return cls(**{f: typed_ast3_to_ast(node) for f, node in ast3.iter_fields(v)})

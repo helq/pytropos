@@ -123,6 +123,16 @@ Install requirements:
     pip install -r git_requirements.txt
     pip install argparse
 
+Configure git hooks:
+
+    git config --local core.hooksPath "git-hooks"
+
+Pre- and post-commit hooks are in place to regenerate the documentation just before
+commiting. If you want to disable temporarily the automatic regeneration create a file
+named `no_docs_generation` on root:
+
+    touch no_docs_generation
+
 ## Run tests ##
 
     paver test_all

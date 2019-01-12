@@ -34,8 +34,11 @@ extract_op = re.compile(r'op_([a-zA-Z]*)(_([a-zA-Z]*))?$')
 
 
 class Int(AbstractValue):
-    """Int Abstract Domain. It is the simplest, the abstraction function is Int(n) and
-    the concretisation is all naturals for n==None and {n} for n"""
+    """Int Abstract Domain. It is the simplest abstract domain for Numbers.
+
+    The abstraction function is Int(n) and the concretisation is all naturals for n==None
+    and {n} for n
+    """
     def __init__(self, val: Optional[int] = None) -> None:
         """
         If val is None, then the Int value is Top
@@ -152,8 +155,11 @@ class Int(AbstractValue):
 
 
 class Float(AbstractValue):
-    """Float Abstract Domain. It is the simplest, the abstraction function is Float(n) and
-    the concretisation is floating numbers for n==None and {n} for n"""
+    """Float Abstract Domain. It is the simplest abstract domain for numbers.
+
+    The abstraction function is Float(n) and the concretisation is floating numbers for
+    n==None and {n} for n
+    """
     def __init__(self, val: Optional[float] = None) -> None:
         """
         If val is None, then the Float value is Top
@@ -299,8 +305,10 @@ class Float(AbstractValue):
 
 
 class Bool(AbstractValue):
-    r"""
-    Bool Abstract Domain.
+    r"""Bool Abstract Domain.
+
+    ::
+
              Top
             /   \
           True False

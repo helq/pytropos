@@ -1,5 +1,5 @@
-Specialized linter for tensor/array/matrix operations
-=====================================================
+Abstract Interpretation-based linter for Python
+===============================================
 
 Contents:
 

@@ -1,0 +1,19 @@
+#!/bin/sh 
+
+if [ ! -e no_docs_generation ]; then
+    echo "*** Updating docs ***"
+
+    if ! command -v sphinx-apidoc > /dev/null; then
+        echo "Error: Sphinx isn't installed. Please install it and try commiting again."
+        echo "  Or if you don't want to run Sphinx before commiting create a file \`no_docs_generation'"
+        exit 1
+    fi
+
+    echo "Removing old docs"
+    rm -r -v docs/source/pytropos* docs/source/modules.rst
+    echo "Creating new docs"
+    sphinx-apidoc -o docs/source pytropos
+
+    touch .commit 
+    exit
+fi

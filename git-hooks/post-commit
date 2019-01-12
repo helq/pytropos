@@ -1,0 +1,8 @@
+#!/bin/sh
+echo
+if [ -e .commit ]; then
+    rm .commit
+    git add docs/source
+    git commit --amend -C HEAD --no-verify
+fi
+exit

@@ -1,8 +1,25 @@
 pytropos.internals package
 ==========================
 
+Subpackages
+-----------
+
+.. toctree::
+
+    pytropos.internals.control
+    pytropos.internals.store
+    pytropos.internals.values
+
 Submodules
 ----------
+
+pytropos.internals.abstract\_domain module
+------------------------------------------
+
+.. automodule:: pytropos.internals.abstract_domain
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 pytropos.internals.errors module
 --------------------------------
@@ -12,18 +29,10 @@ pytropos.internals.errors module
     :undoc-members:
     :show-inheritance:
 
-pytropos.internals.tools module
--------------------------------
+pytropos.internals.miscelaneous module
+--------------------------------------
 
-.. automodule:: pytropos.internals.tools
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-pytropos.internals.values module
---------------------------------
-
-.. automodule:: pytropos.internals.values
+.. automodule:: pytropos.internals.miscelaneous
     :members:
     :undoc-members:
     :show-inheritance:
