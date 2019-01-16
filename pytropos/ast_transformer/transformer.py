@@ -41,7 +41,8 @@ compopt = {
 }  # type: Dict[Type[ast3.cmpop], str]
 
 no_need_to_transform = set(operations).union(compopt).union([  # type: ignore
-    ast3.alias
+    ast3.alias,
+    ast3.Load
 ])
 
 
@@ -495,3 +496,27 @@ class PytroposTransformer(ast3.NodeTransformer):
             raise AstTransformerError(
                 f"Pytropos doesn't recognise {type(node.value)} as a constant. Sorry"
             )
+
+    def visit_List(self, node: ast3.List) -> VisitorOutput:
+        """Transforms a list into a Pytropos value.
+
+        For example, it converts::
+
+            [a, 5, 21]
+
+        into::
+
+            pt.list([st['a'], pt.int(5), pt.int(21)])"""
+        self.generic_visit(node)
+
+        return ast3.Call(
+            func=ast3.Attribute(
+                value=ast3.Name(id='pt', ctx=ast3.Load()),
+                attr='list',
+                ctx=ast3.Load(),
+            ),
+            args=[
+                node
+            ],
+            keywords=[],
+        )

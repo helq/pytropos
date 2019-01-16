@@ -29,8 +29,10 @@ def runIf(
 
     if bool_qst.is_top():
         store_if = if_(store.copy())
+        # print(f"store_if = {store_if}")
         if else_:
             store = else_(store)
+            # print(f"store_else = {store}")
         # TODO(helq): replace join with join_destructive
         return store.join(store_if)
     elif bool_qst.val is True:

@@ -6,7 +6,7 @@ from pytropos import Store  # noqa: F401
 import pytropos.internals.control.execute as execute
 from pytropos.internals.values.builtin_values import Int
 from pytropos.internals.values.python_values import PythonValue
-import pytropos.internals.values.python_values as pv
+import pytropos.internals.values as pv
 
 from .common_strategies import st_any_pv
 

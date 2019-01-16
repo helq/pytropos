@@ -4,10 +4,34 @@ pytropos.internals.values package
 Submodules
 ----------
 
+pytropos.internals.values..builtin\_mutvalues.py\@neomake\_10427\_103 module
+----------------------------------------------------------------------------
+
+.. automodule:: pytropos.internals.values..builtin_mutvalues.py@neomake_10427_103
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pytropos.internals.values..python\_values.py\@neomake\_10427\_80 module
+-----------------------------------------------------------------------
+
+.. automodule:: pytropos.internals.values..python_values.py@neomake_10427_80
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pytropos.internals.values.abstract\_value module
 ------------------------------------------------
 
 .. automodule:: pytropos.internals.values.abstract_value
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pytropos.internals.values.builtin\_mutvalues module
+---------------------------------------------------
+
+.. automodule:: pytropos.internals.values.builtin_mutvalues
     :members:
     :undoc-members:
     :show-inheritance:

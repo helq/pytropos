@@ -52,7 +52,7 @@ class Store(AbstractDomain):
             if not val.is_mut():
                 new_globals[k] = val  # non mutable objects don't need to be cloned
             else:
-                new_globals[k] = val.copy_obj(mut_heap)
+                new_globals[k] = val.copy_mut(mut_heap)
 
         return new_store
 
