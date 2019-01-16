@@ -20,6 +20,14 @@ pytropos.internals.values.builtin\_values module
     :undoc-members:
     :show-inheritance:
 
+pytropos.internals.values.objects\_ids module
+---------------------------------------------
+
+.. automodule:: pytropos.internals.values.objects_ids
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pytropos.internals.values.python\_values module
 -----------------------------------------------
 

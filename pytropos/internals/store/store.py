@@ -43,7 +43,18 @@ class Store(AbstractDomain):
         Returns a copy of the Store.
         Any modification to this shouldn't alter the original store.
         """
-        return Store(self)
+        new_store = Store(self)
+
+        mut_heap = {}  # type: Dict[int, PythonValue]
+        new_globals = new_store._global_scope
+
+        for k, val in self._global_scope.items():
+            if not val.is_mut():
+                new_globals[k] = val  # non mutable objects don't need to be cloned
+            else:
+                new_globals[k] = val.copy_obj(mut_heap)
+
+        return new_store
 
     def __getitem__(self, key_: Union[str, Tuple[str, Pos]]) -> PythonValue:
         if not isinstance(key_, tuple):
@@ -107,22 +118,52 @@ class Store(AbstractDomain):
         return self._im_top
 
     def join(self, other: 'Store') -> 'Store':
-        keys = set(self._global_scope).union(other._global_scope)
-        common_keys = set(self._global_scope).intersection(other._global_scope)
+        left_keys = set(self._global_scope)
+        right_keys = set(other._global_scope)
+        keys = left_keys.union(right_keys)
         new_store = Store()
+        new_globals = new_store._global_scope
+        mut_heap = {}  # type: Dict[Tuple[str, int], Tuple[int, int, PythonValue]]
 
         for key in keys:
-            if key not in common_keys:
-                new_store._global_scope[key] = PythonValue.top()
+            # The key is only in the left store
+            if key not in right_keys:
+                # handling the mutable case
+                left_val = self._global_scope[key]
+                if left_val.is_mut():
+                    left_val.convert_into_top(mut_heap, "left")
+
+                new_globals[key] = PythonValue.top()
+
+            # The key is only in the right store
+            elif key not in left_keys:
+                # handling the mutable case
+                right_val = self._global_scope[key]
+                if right_val.is_mut():
+                    right_val.convert_into_top(mut_heap, "right")
+
+                new_globals[key] = PythonValue.top()
+
+            # the key is in both stores
             else:
                 val1 = self._global_scope[key]
                 val2 = other._global_scope[key]
 
-                # if the same object is saved in both Stores, don't copy it!
-                if val1 is val2:
-                    new_store._global_scope[key] = val1
+                if val1.is_mut():
+                    if val2.is_mut():  # both (val1 and val2) are mutable
+                        new_globals[key] = val1.join_mut(val2, mut_heap)
+
+                    else:  # val1 mutable, val2 not mutable
+                        val1.convert_into_top(mut_heap, 'left')
+                        new_globals[key] = PythonValue.top()
+
                 else:
-                    new_store._global_scope[key] = val1.join(val2)
+                    if val2.is_mut():  # val1 not mutable, val2 mutable
+                        val2.convert_into_top(mut_heap, 'right')
+                        new_globals[key] = PythonValue.top()
+
+                    else:  # both (val1 and val2) are not mutable
+                        new_globals[key] = val1.join(val2)
 
         return new_store
 

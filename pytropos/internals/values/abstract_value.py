@@ -1,13 +1,13 @@
 from abc import abstractmethod
 from ..abstract_domain import AbstractDomain
 from typing import Tuple, Any, Optional
+from typing import Dict  # noqa: F401
 
 from ..miscelaneous import Pos
 
 __all__ = ['AbstractValue']
 
 
-# TODO(helq): add `get` method to simulate access to member values like, num.some.var
 class AbstractValue(AbstractDomain):
     """
     All variables in pytropos must derivate from `AbstractValue`. `AbstractValue` is just
@@ -96,5 +96,6 @@ class AbstractValue(AbstractDomain):
         Determining if two Abstract Values are the same:
         Top == Top
         Top != Int(3)
+        Int(5) == Int(5)
         """
         raise NotImplementedError()
