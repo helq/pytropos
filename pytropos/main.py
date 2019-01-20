@@ -2,22 +2,41 @@
 """Program entry point"""
 
 import argparse
+import ast
 import sys
-from typing import List, TextIO, Optional, TYPE_CHECKING
-from types import CodeType
+from typed_ast import ast3
+from typing import TYPE_CHECKING
 import traceback
+import code
 
+from pytropos.ast_transformer import \
+    typed_ast3_to_ast, PytroposTransformer, AstTransformerError
 from pytropos import metadata
 import pytropos.debug_print as debug_print
 from pytropos.debug_print import dprint, derror
 from pytropos.internals.errors import TypeCheckLogger
 
 if TYPE_CHECKING:
+    from typing import List, Optional
     from typing import Dict, Any, Tuple  # noqa: F401
+    from types import CodeType
+
     from pytropos import Store
 
 
-def main(argv: List[str]) -> int:
+banner = r"""Welcome to
+.___      _
+| _ \_  _| |_ _ _ ___.____  ___.__.
+|  _/ || |  _| '_/ _ \ '_ \/ _ (_-<
+|_|  \_, |\__|_| \___/ .__/\___/__/
+     |__/            |_|
+Write in Python and I'll try to execute it
+"""
+
+exitmsg = "Bye!! :D"
+
+
+def main(argv: 'List[str]') -> int:
     """Program entry point.
 
     :param argv: command-line arguments
@@ -61,24 +80,43 @@ def main(argv: List[str]) -> int:
         help="Checks the values at a specific line in the code"
     )
 
-    arg_parser.add_argument(
+    repl_or_file = arg_parser.add_mutually_exclusive_group()
+
+    repl_or_file.add_argument(
+        '-r', '--repl',
+        action='store_true',
+        default=False,
+        help='Runs Pytropos REPL'
+    )
+
+    repl_or_file.add_argument(
         'file',
+        nargs='?',
         type=argparse.FileType('r'),
         help='File to analyse')
 
     args_parsed = arg_parser.parse_args(args=argv[1:])
 
-    check_line = args_parsed.check_line  # type: Optional[int]
-
     # Highest level of verbosity is 3
     debug_print.verbosity = 3 if args_parsed.verbose > 3 else args_parsed.verbose
 
-    return run_pytropos(check_line, args_parsed.file)[0]
+    if args_parsed.repl:
+        PytroposConsole().interact(banner=banner, exitmsg=exitmsg)
+        return 0
+    else:
+        cursorline = args_parsed.check_line  # type: Optional[int]
+
+        file = args_parsed.file
+        exitcode = run_pytropos(file.read(), file.name, cursorline)[0]
+        return exitcode
 
 
-def run_pytropos(
-        check_line: Optional[int],
-        file: TextIO
+def run_pytropos(  # noqa: C901
+        file: str,
+        filename: str,
+        cursorline: 'Optional[int]' = None,
+        console: bool = False,
+        pt_globals: 'Optional[Dict[str, Any]]' = None
 ) -> 'Tuple[int, Optional[Store]]':
     dprint("Starting pytropos", verb=1)
 
@@ -95,15 +133,18 @@ def run_pytropos(
                   file=sys.stderr)
             exit(1)
 
-    from typed_ast import ast3
-    from pytropos.ast_transformer import \
-        typed_ast3_to_ast, PytroposTransformer, AstTransformerError
-
     # Parsing file
     ast_: ast3.Module
-    ast_ = ast3.parse(file.read(), filename=file.name)  # type: ignore
+    try:
+        ast_ = ast3.parse(file, filename=filename)  # type: ignore
+    except SyntaxError as msg:
+        derror(f"{msg.filename}:{msg.lineno}:{msg.offset-1}: {type(msg).__name__}: {msg.msg}")
+        return (2, None)
+    except (OverflowError, ValueError) as msg:
+        derror(f"{filename}::: {type(msg).__name__}")
+        return (2, None)
 
-    if debug_print.verbosity > 1:  # little optimization to not run dumps
+    if debug_print.verbosity > 1:
         dprint("Original file:", verb=2)
         dprint("AST dump of original file:", ast3.dump(ast_), verb=3)
         dprint(unparse(ast_), verb=2)
@@ -111,11 +152,16 @@ def run_pytropos(
     # Converting AST (code) into Pytropos representation
     newast: ast3.Module
     try:
-        newast = PytroposTransformer(file.name, check_line).visit(ast_)  # type: ignore
-    except AstTransformerError:
+        newast = PytroposTransformer(  # type: ignore
+            filename,
+            cursorline=cursorline,
+            console=console
+        ).visit(ast_)
+    except AstTransformerError as msg:
         derror("Sorry it seems Pytropos cannot run the file. Pytropos doesn't support "
-               "some Python characteristic it uses right now. Sorry :(\n")
-        traceback.print_exc()
+               "some Python characteristic it uses right now. Sorry :(")
+        # traceback.print_exc()
+        derror(msg)
         return (2, None)
 
     if debug_print.verbosity > 1:
@@ -123,14 +169,13 @@ def run_pytropos(
         dprint("AST dump of modified file:", ast3.dump(newast), verb=3)
         dprint(unparse(newast), verb=2)
 
-    import ast
     newast_py = ast.fix_missing_locations(typed_ast3_to_ast(newast))
     # TODO(helq): add these lines of code for optional debugging
     # import astpretty
     # astpretty.pprint(newast_py)
     newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
 
-    exitvalues = run_transformed_type_checking_code(newast_comp)
+    exitvalues = run_transformed_type_checking_code(newast_comp, pt_globals)
     TypeCheckLogger.clean_sing()
 
     dprint("Closing pytropos", verb=1)
@@ -138,8 +183,12 @@ def run_pytropos(
     return exitvalues
 
 
-def run_transformed_type_checking_code(newast_comp: CodeType) -> 'Tuple[int, None[Store]]':
-    pt_globals = {}  # type: Dict[str, Any]
+def run_transformed_type_checking_code(
+        newast_comp: 'CodeType',
+        pt_globals: 'Optional[Dict[str, Any]]'
+) -> 'Tuple[int, None[Store]]':
+    if pt_globals is None:
+        pt_globals = {}
 
     # from pytropos.internals.tools import NonImplementedPT
     try:
@@ -177,6 +226,54 @@ def run_transformed_type_checking_code(newast_comp: CodeType) -> 'Tuple[int, Non
 def entry_point() -> None:
     """Zero-argument entry point for use with setuptools/distribute."""
     raise SystemExit(main(sys.argv))
+
+
+class PytroposConsole(code.InteractiveConsole):
+    # def raw_input(self, prompt: str = "") -> str:
+    #     got = super().raw_input(prompt)
+    #     print(got)
+    #     return got
+    locals = None  # type: Dict[str, Any]
+
+    def __init__(self, locals: 'Optional[dict]' = None) -> None:
+        super().__init__(locals)
+        import pytropos as pt
+        import pytropos.internals.values.python_values as pv
+        import pytropos.internals.values.builtin_values as bv
+
+        def print_console(v: pv.PythonValue) -> None:
+            if isinstance(v.val, bv.NoneType):
+                return
+            print(v)
+
+        self.locals['pt'] = pt
+        self.locals['st'] = pt.Store()
+        self.locals['fn'] = '<console>'
+        self.locals['print_console'] = print_console
+
+    def runsource(self,
+                  source: str,
+                  filename: str = "<input>",
+                  symbol: str = "single"
+                  ) -> bool:
+        try:
+            code_ = self.compile(source, filename, symbol)  # type: ignore
+        except (OverflowError, SyntaxError, ValueError):
+            # Case 1
+            self.showsyntaxerror(filename)
+            return False
+
+        if code_ is None:
+            # Case 2
+            return True
+
+        # print(source)
+        # Case 3
+        run_pytropos(source,
+                     '<console>',
+                     console=True,
+                     pt_globals=self.locals)
+        return False
 
 
 if __name__ == '__main__':

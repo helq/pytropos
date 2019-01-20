@@ -1,4 +1,4 @@
-from math import isinf
+# from math import isinf
 
 from .python_values import AbstractMutVal, PythonValue
 
@@ -63,16 +63,16 @@ class List(AbstractMutVal):
                 output.append(f"...")
             output.append(repr(v))
 
-        if self.size[1] > j+1:
-            output.append('...')
+        # if self.size[1] > j+1:
+        #     output.append('...')
 
-        if self.size[0] == self.size[1]:
-            str_size = str(self.size[0])
-        elif isinf(self.size[1]):
-            str_size = f"[{self.size[0]},inf)"
-        else:
-            str_size = f"[{self.size[0]},{self.size[1]}]"
-        return 'List([' + ', '.join(output) + f'], size={str_size}, id={self.mut_id})'
+        # if self.size[0] == self.size[1]:
+        #     str_size = str(self.size[0])
+        # elif isinf(self.size[1]):
+        #     str_size = f"[{self.size[0]},inf)"
+        # else:
+        #     str_size = f"[{self.size[0]},{self.size[1]}]"
+        # return 'List([' + ', '.join(output) + f'], size={str_size}, id={self.mut_id})'
 
         return '[' + ', '.join(output) + f']'
 

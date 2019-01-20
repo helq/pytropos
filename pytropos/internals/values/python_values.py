@@ -161,6 +161,9 @@ class PythonValue(AbstractDomain):
 
         return new_obj
 
+    # TODO(helq): This equality function is faulty (because of the underlying mutable
+    # variables). An equality function should be defined in Store, not here, to compare
+    # two different Stores. Similar to how `join_mut` is defined
     def __eq__(self, other: Any) -> 'bool':
         if self is other:
             return True

@@ -65,12 +65,14 @@ def pos_as_tuple(node: ast3.expr) -> Optional[ast3.Tuple]:
 class PytroposTransformer(ast3.NodeTransformer):
     def __init__(self,
                  filename: str,
-                 cursorline: Optional[int] = None
+                 cursorline: Optional[int] = None,
+                 console: bool = False
                  ) -> None:
         super().__init__()
         self.filename = filename
         self.scope_level = 0
         self.cursorline = cursorline
+        self.console = console
 
     def _show_store_contents_expr(self) -> ast3.Expr:
         """Returns an ast3.Expr which prints the value of the store in the screen. Useful
@@ -92,18 +94,29 @@ class PytroposTransformer(ast3.NodeTransformer):
         - throw error if a transformation hasn't been defined for a node type
         """
 
+        isoncursor = False
         if isinstance(node, ast3.stmt):
-            return self.visit_stmt(node)
+            isoncursor = self.isoncursor(node)
 
         node_type = type(node)
         method_name = f'visit_{node_type.__name__}'
         if hasattr(self, method_name):
-            return getattr(self, method_name)(node)  # type: ignore
+            method = getattr(self, method_name)
+            if isoncursor:
+                return self.add_stmt_print_store(method(node))
+            else:
+                return method(node)  # type: ignore
 
         # Ignoring supported operators (like Div, Mul, ...)
         if node_type in no_need_to_transform:
             return node
         else:
+            if hasattr(node, 'lineno'):
+                raise AstTransformerError(
+                    f"{self.filename}:{node.lineno}:{node.col_offset}: Fatal Error:"  # type: ignore
+                    f" Pytropos doesn't support {node_type.__name__!r} yet. "
+                    "Sorry for the inconvinience :S"
+                )
             raise AstTransformerError(
                 f"Pytropos doesn't support {node_type.__name__!r} yet. "
                 "Sorry for the inconvinience :S"
@@ -111,26 +124,19 @@ class PytroposTransformer(ast3.NodeTransformer):
         # else:
         #     return super().visit(node)  # type: ignore
 
-    def visit_stmt(self, node: ast3.stmt) -> VisitorOutput:
-        # Checking if the current stmt is in the line cursorline passed by the user
-        isinline = self.cursorline is not None \
+    def isoncursor(self, node: ast3.stmt) -> bool:
+        return self.cursorline is not None \
             and hasattr(node, "lineno") \
             and self.cursorline == node.lineno
 
-        visited = super().visit(node)  # type: VisitorOutput
-
-        # If the user asked for to print the Store contents at this line, add the new
-        # print expr
-        if isinline:
-            if isinstance(visited, list):
-                return [self._show_store_contents_expr()] + visited  # type: ignore
-            elif visited is None:
-                return [self._show_store_contents_expr()]
-            else:
-                assert isinstance(visited, ast3.AST)
-                return [self._show_store_contents_expr(), visited]
-
-        return visited
+    def add_stmt_print_store(self, node: VisitorOutput) -> VisitorOutput:
+        if isinstance(node, list):
+            return [self._show_store_contents_expr()] + node  # type: ignore
+        elif node is None:
+            return [self._show_store_contents_expr()]
+        else:
+            assert isinstance(node, ast3.AST)
+            return [self._show_store_contents_expr(), node]
 
     def visit_AugAssign(self, node: ast3.AugAssign) -> VisitorOutput:
         """Converts `A (op)= Statement` into `A = A (op) (Statement)`
@@ -282,24 +288,30 @@ class PytroposTransformer(ast3.NodeTransformer):
     def visit_Module(self, node: ast3.Module) -> VisitorOutput:
         "Adding the necessary pumbling for the transformed module to work"
 
+        # In the case the transformation is being called from Console, then don't add
+        # anything to it
         cursorline_at_end = \
             self.cursorline is not None \
             and len(node.body) > 0 \
             and node.body[-1].lineno < self.cursorline
 
         self.generic_visit(node)
-        node.body = (
-            ast3.parse(  # type: ignore
-                'import pytropos as pt\n'
-                # 'import pytropos.libs.base\n'
-                'st = pt.Store()\n'
-                # 'st.load_module(pytropos.libs.base, "__builtins__")\n'
-                f'fn = {self.filename!r}\n'
-            ).body +
-            node.body
-        )
-        if cursorline_at_end:
+
+        if not self.console:
+            node.body = (
+                ast3.parse(  # type: ignore
+                    'import pytropos as pt\n'
+                    # 'import pytropos.libs.base\n'
+                    'st = pt.Store()\n'
+                    # 'st.load_module(pytropos.libs.base, "__builtins__")\n'
+                    f'fn = {self.filename!r}\n'
+                ).body +
+                node.body
+            )
+
+        if cursorline_at_end or self.console:
             node.body.append(self._show_store_contents_expr())
+
         return node
 
     def visit_If(self, node: ast3.If) -> VisitorOutput:
@@ -490,6 +502,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                     attr='none',
                     ctx=ast3.Load(),
                 ),
+                args=[],
                 keywords=[],
             )
         else:
@@ -520,3 +533,20 @@ class PytroposTransformer(ast3.NodeTransformer):
             ],
             keywords=[],
         )
+
+    def visit_Expr(self, node: ast3.Expr) -> VisitorOutput:
+        """"""
+        self.generic_visit(node)
+
+        # In console mode ("single" for Python's compile) any expression statement should
+        # print to console
+        if self.console:
+            return ast3.Expr(
+                value=ast3.Call(
+                    func=ast3.Name(id='print_console', ctx=ast3.Load()),
+                    args=[node.value],
+                    keywords=[],
+                ),
+            )
+
+        return node
