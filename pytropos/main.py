@@ -30,7 +30,7 @@ banner = r"""Welcome to
 |  _/ || |  _| '_/ _ \ '_ \/ _ (_-<
 |_|  \_, |\__|_| \___/ .__/\___/__/
      |__/            |_|
-Write in Python and I'll try to execute it
+An abstract interpreter for Python
 """
 
 exitmsg = "Bye!! :D"
@@ -241,14 +241,16 @@ class PytroposConsole(code.InteractiveConsole):
         import pytropos.internals.values.python_values as pv
         import pytropos.internals.values.builtin_values as bv
 
+        self.locals['pt'] = pt
+        self.locals['st'] = store = pt.Store()
+        self.locals['fn'] = '<console>'
+
         def print_console(v: pv.PythonValue) -> None:
+            store['_'] = v  # The value executed is saved on Store
             if isinstance(v.val, bv.NoneType):
                 return
             print(v)
 
-        self.locals['pt'] = pt
-        self.locals['st'] = pt.Store()
-        self.locals['fn'] = '<console>'
         self.locals['print_console'] = print_console
 
     def runsource(self,

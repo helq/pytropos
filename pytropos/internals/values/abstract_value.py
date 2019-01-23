@@ -34,8 +34,8 @@ class AbstractValue(AbstractDomain):
         raise NotImplementedError()
 
     def fun_call(self,
-                 args: Tuple[Any],
-                 vau: Any,
+                 store: Any,
+                 args: Any,
                  src_pos: Optional[Pos]
                  ) -> Any:
         """The Abstract Value is invoked as a function"""

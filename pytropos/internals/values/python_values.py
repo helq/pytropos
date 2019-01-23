@@ -13,7 +13,7 @@ from .objects_ids import new_id
 from ..miscelaneous import Pos
 
 
-__all__ = ['PythonValue', 'PT', 'AbstractMutVal']
+__all__ = ['PythonValue', 'PT', 'AbstractMutVal', 'Args']
 
 
 class PT(Enum):
@@ -190,6 +190,31 @@ class PythonValue(AbstractDomain):
                     return r
             else:
                 return self.val.abstract_repr
+
+    def call(self,
+             store: Any,
+             args: 'Args',
+             pos: Optional[Pos] = None) -> 'PythonValue':
+        if self.is_top():
+            return PythonValue.top()
+
+        # This assert is always true, it's just to keep Mypy from crying
+        assert isinstance(self.val, AbstractValue), \
+            f"Left type is {type(self.val)} but should have been an AbstractValue"
+
+        call_method = self.val.fun_call
+        if self.__op_in_abstractvalue_overwritten(call_method):
+            newval = call_method(store, args, pos)  # type: PythonValue
+            assert isinstance(newval, PythonValue), "A function call didn't return a PythonValue"
+        else:
+            TypeCheckLogger().new_warning(
+                "E009",
+                f"TypeError: '{self.val.type_name}' object is not callable",
+                pos)
+
+            newval = PythonValue.top()
+
+        return newval
 
     def __getattr__(self, name: str) -> Any:
         # Checking if name is add, mul, truediv
@@ -424,3 +449,16 @@ class AbstractMutVal(AbstractValue):
 
         cls = type(self)
         return cls(children=new_children)
+
+
+class Args:
+    def __init__(
+            self,
+            vals: 'Tuple[PythonValue, ...]',
+            args: 'Optional[List[PythonValue]]' = None,
+            kargs: 'Optional[Dict[str, PythonValue]]' = None
+    ) -> None:
+        """Basic support for arguments to pass to a function"""
+        self.vals = vals
+        self.args = args
+        self.kargs = kargs

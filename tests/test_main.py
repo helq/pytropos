@@ -85,7 +85,8 @@ class TestMain(object):
             self._find_output_file_and_store(filepath)
 
         # Executing Pytropos
-        exit_exitcode, exit_store = main.run_pytropos(None, open(filepath))
+        file = open(filepath)
+        exit_exitcode, exit_store = main.run_pytropos(file.read(), file.name)
         out, err = capsys.readouterr()
 
         # Checking validity of execution

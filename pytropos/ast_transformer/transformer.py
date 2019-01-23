@@ -41,8 +41,8 @@ compopt = {
 }  # type: Dict[Type[ast3.cmpop], str]
 
 no_need_to_transform = set(operations).union(compopt).union([  # type: ignore
-    ast3.alias,
-    ast3.Load
+    # ast3.alias,
+    ast3.Load,
 ])
 
 
@@ -535,7 +535,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         )
 
     def visit_Expr(self, node: ast3.Expr) -> VisitorOutput:
-        """"""
+        """Only the internal parts of an Expr are modified, an Expr keeps being an Expr"""
         self.generic_visit(node)
 
         # In console mode ("single" for Python's compile) any expression statement should
@@ -550,3 +550,98 @@ class PytroposTransformer(ast3.NodeTransformer):
             )
 
         return node
+
+    def visit_Delete(self, node: ast3.Delete) -> VisitorOutput:
+        """Delete doesn't requires to be transformed (but its contents do)."""
+        self.generic_visit(node)
+        return node
+
+    def visit_Starred(self, node: ast3.Starred) -> VisitorOutput:
+        """Starred doesn't requires to be transformed (but its contents do)."""
+        self.generic_visit(node)
+        return node
+
+    def visit_keyword(self, node: ast3.keyword) -> VisitorOutput:
+        """keyword doesn't requires to be transformed (but its contents do)."""
+        self.generic_visit(node)
+        return node
+
+    def visit_Call(self, node: ast3.Call) -> VisitorOutput:
+        """Transforms a call to be handled by Pytropos
+
+        For example, it converts::
+
+            func(3, b, *c, d=2)
+
+        into::
+
+            func.call(st, Args((pt.int(3), st['b']), st['c'], {'d': pt.int(2)}), pos=...)"""
+
+        self.generic_visit(node)
+
+        args = []  # type: List[ast3.expr]
+        starred = None  # type: Optional[ast3.expr]
+        kwargs_keys = []  # type: List[ast3.expr]
+        kwargs_values = []  # type: List[ast3.expr]
+
+        for i, v in enumerate(node.args):
+            if isinstance(v, ast3.Starred):
+                starred = v.value
+                break
+            args.append(v)
+        # In case a starred expresion was found
+        else:
+            if i < len(node.args) - 1:  # If there is something after the starred expr
+                raise AstTransformerError(
+                    f"{self.filename}:{v.lineno}:{v.col_offset}: Fatal Error: "
+                    f"Only one expression starred is allowed when calling a function"
+                )
+
+        for val in node.keywords:
+            if val.arg is None:
+                raise AstTransformerError(
+                    f"{self.filename}:{v.lineno}:{v.col_offset}: Fatal Error: "
+                    f"No kargs parameters is allowed when calling a function"
+                )
+            kwargs_keys.append(ast3.Str(s=val.arg))
+            kwargs_values.append(val.value)
+
+        new_call_args = [
+            ast3.Tuple(
+                elts=args,
+                ctx=ast3.Load(),
+            ),
+        ]  # type: List[ast3.expr]
+
+        if kwargs_keys:
+            new_call_args.append(ast3.NameConstant(value=None) if starred is None else starred)
+            new_call_args.append(ast3.Dict(keys=kwargs_keys, values=kwargs_values))
+        elif starred is not None:
+            new_call_args.append(starred)
+
+        return ast3.Call(
+            func=ast3.Attribute(
+                value=node.func,
+                attr='call',
+                ctx=ast3.Load(),
+            ),
+            args=[
+                ast3.Name(id='st', ctx=ast3.Load()),
+                ast3.Call(
+                    func=ast3.Attribute(
+                        value=ast3.Name(id='pt', ctx=ast3.Load()),
+                        attr='Args',
+                        ctx=ast3.Load(),
+                    ),
+                    args=new_call_args,
+                    keywords=[],
+                )
+            ],
+            keywords=[
+                ast3.keyword(
+                    arg='pos',
+                    value=pos_as_tuple(node),
+                    ctx=ast3.Load()
+                )
+            ],
+        )
