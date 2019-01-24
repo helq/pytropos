@@ -31,6 +31,9 @@ WarningType = str
 # E003: OverflowError
 # E009: TypeError: unsopported operand type(s)
 # E010: TypeError: __bool__ should return bool, returned ___
+# E011: AttributeError: 'list' object attribute 'append' is read-only
+# E012: AttributeError: 'list' object has no attribute 'append'
+# E013: AttributeError: '{____}'
 
 # W201: Global variable not set
 # W202: Local variable not set

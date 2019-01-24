@@ -41,6 +41,12 @@ class AbstractValue(AbstractDomain):
         """The Abstract Value is invoked as a function"""
         raise NotImplementedError()
 
+    def get_attrs(self) -> Any:
+        """Returns a dictionary like structure that contains all attributes the implements.
+
+        It should return an object alike to Dict[str, PythonValue]"""
+        raise NotImplementedError()
+
     def call_getitem(self, key: Any) -> Any:
         """Invoking Abstract Value's __getitem__"""
         raise NotImplementedError()

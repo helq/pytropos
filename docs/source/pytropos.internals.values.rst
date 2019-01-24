@@ -20,6 +20,14 @@ pytropos.internals.values..python\_values.py\@neomake\_10427\_80 module
     :undoc-members:
     :show-inheritance:
 
+pytropos.internals.values..python\_values.py\@neomake\_27183\_663 module
+------------------------------------------------------------------------
+
+.. automodule:: pytropos.internals.values..python_values.py@neomake_27183_663
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 pytropos.internals.values.abstract\_value module
 ------------------------------------------------
 
@@ -40,6 +48,14 @@ pytropos.internals.values.builtin\_values module
 ------------------------------------------------
 
 .. automodule:: pytropos.internals.values.builtin_values
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+pytropos.internals.values.functions module
+------------------------------------------
+
+.. automodule:: pytropos.internals.values.functions
     :members:
     :undoc-members:
     :show-inheritance:

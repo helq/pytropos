@@ -43,6 +43,8 @@ compopt = {
 no_need_to_transform = set(operations).union(compopt).union([  # type: ignore
     # ast3.alias,
     ast3.Load,
+    ast3.Store,
+    ast3.Del,
 ])
 
 
@@ -644,4 +646,45 @@ class PytroposTransformer(ast3.NodeTransformer):
                     ctx=ast3.Load()
                 )
             ],
+        )
+
+    def visit_Attribute(self, node: ast3.Attribute) -> VisitorOutput:
+        """Transforms accessing to an attribute to be handled as PythonValues do
+
+        For example, it converts::
+
+            expr.val
+
+        into::
+
+            expr.attr['val']
+
+        or::
+
+            expr.attr[('val', pos)]"""
+
+        self.generic_visit(node)
+
+        pos = pos_as_tuple(node)
+        if pos is not None:
+            varname = ast3.Tuple(
+                elts=[
+                    ast3.Str(s=node.attr),
+                    pos
+                ],
+                ctx=ast3.Load()
+            )  # type: ast3.expr
+        else:
+            varname = ast3.Str(s=node.attr)
+
+        return ast3.Subscript(
+            value=ast3.Attribute(
+                value=node.value,
+                attr='attr',
+                ctx=ast3.Load(),
+            ),
+            slice=ast3.Index(
+                value=varname,
+            ),
+            ctx=node.ctx,
         )

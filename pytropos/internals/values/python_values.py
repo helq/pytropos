@@ -191,6 +191,8 @@ class PythonValue(AbstractDomain):
             else:
                 return self.val.abstract_repr
 
+    # TODO(helq): Improve by checking if the given parameters correspond to the arguments
+    # the function receives, if not return Top
     def call(self,
              store: Any,
              args: 'Args',
@@ -200,7 +202,7 @@ class PythonValue(AbstractDomain):
 
         # This assert is always true, it's just to keep Mypy from crying
         assert isinstance(self.val, AbstractValue), \
-            f"Left type is {type(self.val)} but should have been an AbstractValue"
+            f"The type is {type(self.val)} but should have been an AbstractValue"
 
         call_method = self.val.fun_call
         if self.__op_in_abstractvalue_overwritten(call_method):
@@ -215,6 +217,21 @@ class PythonValue(AbstractDomain):
             newval = PythonValue.top()
 
         return newval
+
+    @property
+    def attr(self) -> 'AttrsContainer':
+        if self.is_top():
+            return AttrsTopContainer()
+
+        # This assert is always true, it's just to keep Mypy from crying
+        assert isinstance(self.val, AbstractValue), \
+            f"The type is {type(self.val)} but should have been an AbstractValue"
+
+        call_method = self.val.get_attrs
+        if self.__op_in_abstractvalue_overwritten(call_method):
+            return call_method()  # type: ignore
+        else:
+            return AttrsTopContainer()
 
     def __getattr__(self, name: str) -> Any:
         # Checking if name is add, mul, truediv
@@ -450,6 +467,9 @@ class AbstractMutVal(AbstractValue):
         cls = type(self)
         return cls(children=new_children)
 
+    def get_attrs(self) -> 'AttrsContainer':
+        return AttrsMutContainer(self.type_name, self.children)
+
 
 class Args:
     def __init__(
@@ -462,3 +482,92 @@ class Args:
         self.vals = vals
         self.args = args
         self.kargs = kargs
+
+
+class AttrsContainer:
+    """This class acts as a Dict[str, PythonValue] but it is defined for AbstractMutVals"""
+    def __getitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> PythonValue:
+        raise NotImplementedError()
+
+    def __delitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> None:
+        raise NotImplementedError()
+
+    def __setitem__(self, key_: 'Union[str, Tuple[str, Pos]]', val: PythonValue) -> None:
+        raise NotImplementedError()
+
+
+# TODO(helq): Define __setitem__ and __delitem__, similar at how they are defined in Store
+class AttrsMutContainer(AttrsContainer):
+    """This class acts as a Dict[str, PythonValue] but it is defined for AbstractMutVals"""
+    def __init__(
+            self,
+            type_name: str,
+            children: 'Dict[Any, PythonValue]',
+            read_only: bool = False
+    ) -> None:
+        self.type_name = type_name
+        self.children = children
+        self.read_only = read_only
+
+    def __getitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> PythonValue:
+        if not isinstance(key_, tuple):
+            key = key_
+            src_pos = None  # type: Optional[Pos]
+        else:
+            key, src_pos = key_
+
+        try:
+            return self.children[('attr', key)]
+        except KeyError:
+            TypeCheckLogger().new_warning(
+                "E011",
+                f"AttributeError: '{self.type_name}' object has no attribute '{key}'",
+                src_pos)
+            return PythonValue.top()
+
+    def __setitem__(self,
+                    key_: 'Union[str, Tuple[str, Pos]]',
+                    val: PythonValue) -> None:
+        if not isinstance(key_, tuple):
+            key = key_
+            src_pos = None  # type: Optional[Pos]
+        else:
+            key, src_pos = key_
+
+        if self.read_only:
+            TypeCheckLogger().new_warning(
+                "E012",
+                f"AttributeError: '{self.type_name}' object attribute '{key}' is read-only",
+                src_pos)
+        else:
+            self.children[('attr', key)] = val
+
+    def __delitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> None:
+        if not isinstance(key_, tuple):
+            key = key_
+            src_pos = None  # type: Optional[Pos]
+        else:
+            key, src_pos = key_
+
+        if self.read_only:
+            TypeCheckLogger().new_warning(
+                "E012",
+                f"AttributeError: '{self.type_name}' object attribute '{key}' is read-only",
+                src_pos)
+        else:
+            try:
+                del self.children[('attr', key)]
+            except KeyError:
+                TypeCheckLogger().new_warning("E013", f"AttributeError: '{key}'", src_pos)
+
+
+class AttrsTopContainer(AttrsContainer):
+    """This class acts as a Dict[str, PythonValue] but it is defined for AbstractMutVals"""
+    def __getitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> PythonValue:
+        return PythonValue.top()
+
+    def __delitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> None:
+        pass
+
+    def __setitem__(self, key_: 'Union[str, Tuple[str, Pos]]', val: PythonValue) -> None:
+        pass
