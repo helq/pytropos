@@ -31,6 +31,7 @@ banner = r"""Welcome to
 |_|  \_, |\__|_| \___/ .__/\___/__/
      |__/            |_|
 An abstract interpreter for Python
+Type `:?` or `:help` for help
 """
 
 exitmsg = "Bye!! :D"
@@ -253,11 +254,33 @@ class PytroposConsole(code.InteractiveConsole):
 
         self.locals['print_console'] = print_console
 
+        self.help = \
+            "Interpreter special commands:\n\n" \
+            ":?   :help      Prints this help\n" \
+            ":in  :inspect   Access to underlying objects representation" \
+            " in a regular Python environment\n" \
+            ":st  :store     Prints all variables values (ie, globals())\n"
+
     def runsource(self,
                   source: str,
                   filename: str = "<input>",
                   symbol: str = "single"
                   ) -> bool:
+
+        if source and source[0] == ':':
+            if source.strip() in [':inspect', ':in']:
+                code.InteractiveConsole(locals=self.locals).interact()
+                return False
+            elif source.strip() in [':store', ':st']:
+                print(self.locals['st'])
+                return False
+            elif source.strip() in [':help', ':?']:
+                print(self.help)
+                return False
+            else:
+                print(self.help)
+                return False
+
         try:
             code_ = self.compile(source, filename, symbol)  # type: ignore
         except (OverflowError, SyntaxError, ValueError):

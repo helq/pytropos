@@ -49,10 +49,10 @@ class Store(AbstractDomain):
         new_globals = new_store._global_scope
 
         for k, val in self._global_scope.items():
-            if not val.is_mut():
-                new_globals[k] = val  # non mutable objects don't need to be cloned
-            else:
+            if val.is_mut():
                 new_globals[k] = val.copy_mut(mut_heap)
+            else:
+                new_globals[k] = val  # non mutable objects don't need to be cloned
 
         return new_store
 
@@ -138,7 +138,7 @@ class Store(AbstractDomain):
             # The key is only in the right store
             elif key not in left_keys:
                 # handling the mutable case
-                right_val = self._global_scope[key]
+                right_val = other._global_scope[key]
                 if right_val.is_mut():
                     right_val.convert_into_top(mut_heap, "right")
 

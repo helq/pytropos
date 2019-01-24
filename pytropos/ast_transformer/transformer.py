@@ -311,7 +311,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                 node.body
             )
 
-        if cursorline_at_end or self.console:
+        if cursorline_at_end:
             node.body.append(self._show_store_contents_expr())
 
         return node
@@ -593,7 +593,8 @@ class PytroposTransformer(ast3.NodeTransformer):
             args.append(v)
         # In case a starred expresion was found
         else:
-            if i < len(node.args) - 1:  # If there is something after the starred expr
+            # If there is something after the starred expr
+            if len(node.args) > 0 and i < len(node.args) - 1:
                 raise AstTransformerError(
                     f"{self.filename}:{v.lineno}:{v.col_offset}: Fatal Error: "
                     f"Only one expression starred is allowed when calling a function"

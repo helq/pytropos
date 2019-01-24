@@ -4,13 +4,13 @@ from functools import partial
 from typing import Union, Optional, Any
 from typing import Callable, Tuple, Dict, List, Set, Type  # noqa: F401
 
-from .builtin_values import Bool, ops_symbols
-from .abstract_value import AbstractValue
-from ..abstract_domain import AbstractDomain
-from ..errors import TypeCheckLogger
+from ..builtin_values import Bool, ops_symbols
+from ..abstract_value import AbstractValue
+from ...abstract_domain import AbstractDomain
+from ...errors import TypeCheckLogger
 from .objects_ids import new_id
 
-from ..miscelaneous import Pos
+from ...miscelaneous import Pos
 
 
 __all__ = ['PythonValue', 'PT', 'AbstractMutVal', 'Args']
@@ -97,6 +97,7 @@ class PythonValue(AbstractDomain):
         """Copies a mutable object recursively"""
         assert isinstance(self.val, AbstractMutVal)
 
+        # print(f"Copying object with mut_id: {self.mut_id}")
         if self.mut_id in mut_heap:
             return mut_heap[self.mut_id]
         else:
@@ -475,7 +476,7 @@ class Args:
     def __init__(
             self,
             vals: 'Tuple[PythonValue, ...]',
-            args: 'Optional[List[PythonValue]]' = None,
+            args: 'Optional[PythonValue]' = None,
             kargs: 'Optional[Dict[str, PythonValue]]' = None
     ) -> None:
         """Basic support for arguments to pass to a function"""

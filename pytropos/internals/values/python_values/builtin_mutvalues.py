@@ -1,12 +1,12 @@
 from math import isinf
-from typing import Optional, List as List_, Any, Dict, Tuple, Union
+from typing import Optional, List as List_, Any, Dict, Tuple
 
-from .python_values import AbstractMutVal, PythonValue, Args, AttrsContainer
-from .builtin_values import NoneType
-from .functions import MockFunction
-from ..errors import TypeCheckLogger
+from .python_values import AbstractMutVal, PythonValue, Args, AttrsContainer, AttrsMutContainer
+from .wrappers import BuiltinMethod
+from ..builtin_values import NoneType
+from ...errors import TypeCheckLogger
 
-from ..miscelaneous import Pos
+from ...miscelaneous import Pos
 
 __all__ = ['List']
 
@@ -17,7 +17,7 @@ class List(AbstractMutVal):
                  size: 'Optional[Tuple[int,int]]' = None,
                  children: 'Optional[Dict[Any, PythonValue]]' = None
                  ) -> None:
-        super().__init__(children)
+        super().__init__(children=children)
 
         if lst is not None:
             assert children is None, "Cannot initialise List with both a list and children"
@@ -32,13 +32,14 @@ class List(AbstractMutVal):
                 assert size[0] <= n <= size[1]
                 self.size = size
 
+            self.children[('attr', 'append')] = \
+                PythonValue(BuiltinMethod('append', List._append, self))
+
         elif children is None:  # lst is None, and children is {}
             self.__im_top = True
             return
 
         self.__im_top = False
-
-        self._attrs = {'append': PythonValue(self._append)}
 
     def __eq__(self, other: Any) -> 'bool':
         if not isinstance(other, List):
@@ -51,26 +52,6 @@ class List(AbstractMutVal):
         if self.is_top():
             return 'List(None)'
 
-        if self.size == 0:
-            return 'List([])'
-
-        indices: 'List_[Tuple[int, PythonValue]]'
-        indices = sorted([(i[1], v) for i, v in self.children.items() if isinstance(i, tuple)])
-        # print(f"indices = {indices}")
-
-        output = []  # type: List_[str]
-        i = j = 0
-        for j, v in indices:
-            if i == j:
-                i += 1
-            else:
-                i = j
-                output.append(f"...")
-            output.append(repr(v))
-
-        if self.size[1] > j+1:
-            output.append('...')
-
         if self.size[0] == self.size[1]:
             str_size = str(self.size[0])
         elif isinf(self.size[1]):
@@ -78,7 +59,7 @@ class List(AbstractMutVal):
         else:
             str_size = f"[{self.size[0]},{self.size[1]}]"
 
-        return 'List([' + ', '.join(output) + f'], size={str_size}, id={self.mut_id})'
+        return f'List({self.abstract_repr}, size={str_size}, id={self.mut_id})'
 
     @property
     def abstract_repr(self) -> 'str':
@@ -107,7 +88,10 @@ class List(AbstractMutVal):
                 output.append(f"...")
             output.append(repr(v))
 
-        return '[' + ', '.join(output) + f']'
+        if self.size[1] > j+1:
+            output.append('...')
+
+        return '[' + ', '.join(output) + ']'
 
     __top = None  # type: List
 
@@ -140,15 +124,25 @@ class List(AbstractMutVal):
         return new  # type: ignore
 
     def get_attrs(self) -> 'AttrsContainer':
-        return AttrsListContainer(self._attrs)
+        return AttrsMutContainer('List', self.children, read_only=True)
 
-    @MockFunction
     def _append(self, store: Any, args: 'Args', pos: Optional[Pos]) -> 'PythonValue':
         if len(args.vals) != 1 or args.args or args.kargs:
-            TypeCheckLogger().new_warning(
-                "XXXX",
-                f"Arguments error: ERROR YET TO DEFINE",
-                pos)
+            if args.kargs:
+                TypeCheckLogger().new_warning(
+                    "E014",
+                    f"TypeError: insert() takes no keyword arguments",
+                    pos)
+            elif args.args:
+                TypeCheckLogger().new_warning(
+                    "F001",
+                    f"Sorry! Pytropos doesn't support calling append with a starred variable",
+                    pos)
+            else:
+                TypeCheckLogger().new_warning(
+                    "E014",
+                    f"TypeError: append() takes exactly one argument ({len(args.vals)} given)",
+                    pos)
             return PythonValue.top()
 
         if self.size[0] == self.size[1]:
@@ -159,25 +153,3 @@ class List(AbstractMutVal):
             self.size = (self.size[0]+1, self.size[1]+1)
 
         return PythonValue(NoneType())
-
-
-# TODO(helq): Finish defining __setitem__ and __delitem__
-class AttrsListContainer(AttrsContainer):
-    def __init__(self, attrs: 'Dict[str, PythonValue]') -> None:
-        self.attrs = attrs
-
-    def __getitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> PythonValue:
-        if not isinstance(key_, tuple):
-            key = key_
-            src_pos = None  # type: Optional[Pos]
-        else:
-            key, src_pos = key_
-
-        try:
-            return self.attrs[key]
-        except KeyError:
-            TypeCheckLogger().new_warning(
-                "E011",
-                f"AttributeError: 'list' object has no attribute '{key}'",
-                src_pos)
-            return PythonValue.top()

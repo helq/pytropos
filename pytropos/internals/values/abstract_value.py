@@ -1,7 +1,8 @@
 from abc import abstractmethod
-from ..abstract_domain import AbstractDomain
 from typing import Tuple, Any, Optional
 from typing import Dict  # noqa: F401
+
+from ..abstract_domain import AbstractDomain
 
 from ..miscelaneous import Pos
 
