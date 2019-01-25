@@ -48,6 +48,13 @@ class AbstractValue(AbstractDomain):
         It should return an object alike to Dict[str, PythonValue]"""
         raise NotImplementedError()
 
+    def get_subscripts(self, pos: 'Optional[Pos]') -> Any:
+        """Returns a dictionary like structure to access to the elements of an object with
+        subscripts.
+
+        It should return an object alike to Dict[PythonValue, PythonValue]"""
+        raise NotImplementedError()
+
     def call_getitem(self, key: Any) -> Any:
         """Invoking Abstract Value's __getitem__"""
         raise NotImplementedError()

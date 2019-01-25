@@ -689,3 +689,25 @@ class PytroposTransformer(ast3.NodeTransformer):
             ),
             ctx=node.ctx,
         )
+
+    def visit_Tuple(self, node: ast3.Tuple) -> VisitorOutput:
+        """Transforms a tuple into a Pytropos value.
+
+        For example, it converts::
+
+            (a, 5, 21)
+
+        into::
+
+            pt.tuple(st['a'], pt.int(5), pt.int(21))"""
+        self.generic_visit(node)
+
+        return ast3.Call(
+            func=ast3.Attribute(
+                value=ast3.Name(id='pt', ctx=ast3.Load()),
+                attr='tuple',
+                ctx=ast3.Load(),
+            ),
+            args=node.elts,
+            keywords=[],
+        )

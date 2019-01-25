@@ -38,6 +38,8 @@ WarningType = str
 # E012: AttributeError: 'list' object has no attribute 'append'
 # E013: AttributeError: '{____}'
 # E014: TypeError: fun() takes ... arguments (N given)
+# E015: TypeError: 'int' object is not subscriptable
+# E016: TypeError: 'int' object is not callable
 
 # W201: Global variable not set
 # W202: Local variable not set
