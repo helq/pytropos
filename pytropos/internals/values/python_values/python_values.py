@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum
 from functools import partial
 # from math import isinf
@@ -105,14 +106,20 @@ class PythonValue(AbstractDomain):
             new_obj.val = self.val.copy_mut(mut_heap)
             return new_obj
 
-    def convert_into_top(
+    def convert_into_top(self, converted: 'Set[int]') -> None:
+        """Makes the underlying AbstractMutVal Top"""
+        assert isinstance(self.val, AbstractMutVal)
+        self.val.convert_into_top(converted)
+        self.val = self.val.top()
+
+    def new_vals_to_top(
             self,
             mut_heap: 'Dict[Tuple[str, int], Tuple[int, int, PythonValue]]',
             side: str
     ) -> None:
         """Makes a mutable object Top"""
         assert isinstance(self.val, AbstractMutVal)
-        self.val.convert_into_top(mut_heap, side)
+        self.val.new_vals_to_top(mut_heap, side)
 
     def join_mut(self,
                  other: 'PythonValue',
@@ -135,21 +142,21 @@ class PythonValue(AbstractDomain):
 
             # left has been already been joined with other object
             else:
-                self.convert_into_top(mut_heap, 'left')
-                other.convert_into_top(mut_heap, 'right')
+                self.new_vals_to_top(mut_heap, 'left')
+                other.new_vals_to_top(mut_heap, 'right')
                 return PythonValue.top()
 
         if type(self.val) is not type(other.val):  # noqa: E721
-            self.convert_into_top(mut_heap, 'left')
-            other.convert_into_top(mut_heap, 'right')
+            self.new_vals_to_top(mut_heap, 'left')
+            other.new_vals_to_top(mut_heap, 'right')
             return PythonValue.top()
 
         # If the value is top the result its top
         if self.val.is_top():
-            other.convert_into_top(mut_heap, 'right')
+            other.new_vals_to_top(mut_heap, 'right')
             return PythonValue(self.val.top())
         if other.val.is_top():
-            self.convert_into_top(mut_heap, 'right')
+            self.new_vals_to_top(mut_heap, 'right')
             return PythonValue(self.val.top())
 
         new_obj = PythonValue(PT.InConstruction)
@@ -211,7 +218,7 @@ class PythonValue(AbstractDomain):
             assert isinstance(newval, PythonValue), "A function call didn't return a PythonValue"
         else:
             TypeCheckLogger().new_warning(
-                "E009",
+                "E016",
                 f"TypeError: '{self.val.type_name}' object is not callable",
                 pos)
 
@@ -233,6 +240,24 @@ class PythonValue(AbstractDomain):
             return call_method()  # type: ignore
         else:
             return AttrsTopContainer()
+
+    def subs(self, pos: 'Optional[Pos]' = None) -> 'SubscriptsContainer':
+        if self.is_top():
+            return SubscriptsTopContainer()
+
+        # This assert is always true, it's just to keep Mypy from crying
+        assert isinstance(self.val, AbstractValue), \
+            f"The type is {type(self.val)} but should have been an AbstractValue"
+
+        call_method = self.val.get_subscripts
+        if self.__op_in_abstractvalue_overwritten(call_method):
+            return call_method(pos)  # type: ignore
+        else:
+            TypeCheckLogger().new_warning(
+                "E015",
+                f"TypeError: '{self.val.type_name}' object is not subscriptable",
+                pos)
+            return SubscriptsTopContainer()
 
     def __getattr__(self, name: str) -> Any:
         # Checking if name is add, mul, truediv
@@ -364,12 +389,26 @@ class AbstractMutVal(AbstractValue):
 
         return eq
 
-    def convert_into_top(
+    def convert_into_top(self, converted: 'Set[int]') -> None:
+        """Makes all children objects connected to this into Top"""
+        if self.mut_id in converted:
+            return
+
+        converted.add(self.mut_id)
+
+        children = self.children
+        for k, v in children.items():
+            if v.is_mut():
+                assert isinstance(v.val, AbstractMutVal)
+                v.convert_into_top(converted)
+        children.clear()
+
+    def new_vals_to_top(
             self,
             mut_heap: 'Dict[Tuple[str, int], Tuple[int, int, PythonValue]]',
             side: str
     ) -> None:
-        """Makes a mutable object Top"""
+        """Makes all new children objects connected to this into Top"""
         obj_iden = (side, self.mut_id)
         val_children = self.children
 
@@ -388,7 +427,7 @@ class AbstractMutVal(AbstractValue):
             for k, v in children.items():
                 if v.is_mut():
                     assert isinstance(v.val, AbstractMutVal)
-                    v.val.convert_into_top(mut_heap, side)
+                    v.val.new_vals_to_top(mut_heap, side)
 
     def copy_mut(self, mut_heap: 'Dict[int, PythonValue]') -> 'Any':
         """Makes a copy of the current AbstractMutVal.
@@ -431,7 +470,7 @@ class AbstractMutVal(AbstractValue):
                 # handling the mutable case
                 left_val = left_children[k]
                 if left_val.is_mut():
-                    left_val.convert_into_top(mut_heap, "left")
+                    left_val.new_vals_to_top(mut_heap, "left")
 
                 new_children[k] = PythonValue.top()
 
@@ -440,7 +479,7 @@ class AbstractMutVal(AbstractValue):
                 # handling the mutable case
                 right_val = right_children[k]
                 if right_val.is_mut():
-                    right_val.convert_into_top(mut_heap, "right")
+                    right_val.new_vals_to_top(mut_heap, "right")
 
                 new_children[k] = PythonValue.top()
 
@@ -454,12 +493,12 @@ class AbstractMutVal(AbstractValue):
                         new_children[k] = val1.join_mut(val2, mut_heap)
 
                     else:  # val1 mutable, val2 not mutable
-                        val1.convert_into_top(mut_heap, 'left')
+                        val1.new_vals_to_top(mut_heap, 'left')
                         new_children[k] = PythonValue.top()
 
                 else:
                     if val2.is_mut():  # val1 not mutable, val2 mutable
-                        val2.convert_into_top(mut_heap, 'right')
+                        val2.new_vals_to_top(mut_heap, 'right')
                         new_children[k] = PythonValue.top()
 
                     else:  # both (val1 and val2) are not mutable
@@ -485,21 +524,24 @@ class Args:
         self.kargs = kargs
 
 
-class AttrsContainer:
-    """This class acts as a Dict[str, PythonValue] but it is defined for AbstractMutVals"""
+class AttrsContainer(ABC):
+    """This class acts as a Dict[str, PythonValue]"""
+    @abstractmethod
     def __getitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> PythonValue:
         raise NotImplementedError()
 
+    @abstractmethod
     def __delitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> None:
         raise NotImplementedError()
 
+    @abstractmethod
     def __setitem__(self, key_: 'Union[str, Tuple[str, Pos]]', val: PythonValue) -> None:
         raise NotImplementedError()
 
 
-# TODO(helq): Define __setitem__ and __delitem__, similar at how they are defined in Store
 class AttrsMutContainer(AttrsContainer):
-    """This class acts as a Dict[str, PythonValue] but it is defined for AbstractMutVals"""
+    """This class acts as a Dict[str, PythonValue] but it's defined to access and modify
+    AbstractMutVals"""
     def __init__(
             self,
             type_name: str,
@@ -563,7 +605,7 @@ class AttrsMutContainer(AttrsContainer):
 
 
 class AttrsTopContainer(AttrsContainer):
-    """This class acts as a Dict[str, PythonValue] but it is defined for AbstractMutVals"""
+    """This class acts as a Dict[str, PythonValue] that does nothing or returns PV.top()"""
     def __getitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> PythonValue:
         return PythonValue.top()
 
@@ -571,4 +613,32 @@ class AttrsTopContainer(AttrsContainer):
         pass
 
     def __setitem__(self, key_: 'Union[str, Tuple[str, Pos]]', val: PythonValue) -> None:
+        pass
+
+
+class SubscriptsContainer(ABC):
+    """This class acts as a Dict[PythonValue, PythonValue]"""
+    @abstractmethod
+    def __getitem__(self, key_: PythonValue) -> PythonValue:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def __delitem__(self, key_: PythonValue) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def __setitem__(self, key_: PythonValue, val: PythonValue) -> None:
+        raise NotImplementedError()
+
+
+class SubscriptsTopContainer(SubscriptsContainer):
+    """This class acts as a Dict[PythonValue, PythonValue] but returns PV.top() or does
+    nothing"""
+    def __getitem__(self, key_: PythonValue) -> PythonValue:
+        return PythonValue.top()
+
+    def __delitem__(self, key_: PythonValue) -> None:
+        pass
+
+    def __setitem__(self, key_: PythonValue, val: PythonValue) -> None:
         pass

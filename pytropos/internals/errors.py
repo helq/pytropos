@@ -22,6 +22,7 @@ WarningType = str
 # W3__ : A warning that is not builtin but useful in some cases
 # W5__ : A warning with some external library (user defined)
 # E5__ : Error with some external library (user defined)
+# NOTSUPPORTEDYET: Error when some characterist of Python is not yet supported
 # NOIDEA : Error not yet classified
 
 # Table of known errors:
@@ -36,10 +37,14 @@ WarningType = str
 # E010: TypeError: __bool__ should return bool, returned ___
 # E011: AttributeError: 'list' object attribute 'append' is read-only
 # E012: AttributeError: 'list' object has no attribute 'append'
-# E013: AttributeError: '{____}'
+# E013: AttributeError: '----'
 # E014: TypeError: fun() takes ... arguments (N given)
-# E015: TypeError: 'int' object is not subscriptable
-# E016: TypeError: 'int' object is not callable
+# E015: TypeError: '---' object is not subscriptable
+# E016: TypeError: '---' object is not callable
+# E017: TypeError: ---- indices must be integers or slices, not ---
+# E018: TypeError: ----- index out of range
+# E019: TypeError: '-----' object doesn't support item deletion
+# E020: TypeError: '-----' object does not support item assignment
 
 # W201: Global variable not set
 # W202: Local variable not set

@@ -1,6 +1,6 @@
-tests/inputs/13-call-fail.py:1:1: E009 TypeError: 'int' object is not callable
+tests/inputs/13-call-fail.py:1:1: E016 TypeError: 'int' object is not callable
 tests/inputs/13-call-fail.py:2:5: W201 Global variable `a` isn't set
 tests/inputs/13-call-fail.py:2:12: W201 Global variable `l` isn't set
-tests/inputs/13-call-fail.py:3:0: E009 TypeError: 'list' object is not callable
+tests/inputs/13-call-fail.py:3:0: E016 TypeError: 'list' object is not callable
 tests/inputs/13-call-fail.py:4:11: W201 Global variable `n` isn't set
 tests/inputs/13-call-fail.py:4:16: W201 Global variable `m` isn't set

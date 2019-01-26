@@ -120,8 +120,8 @@ class PytroposTransformer(ast3.NodeTransformer):
                     "Sorry for the inconvinience :S"
                 )
             raise AstTransformerError(
-                f"Pytropos doesn't support {node_type.__name__!r} yet. "
-                "Sorry for the inconvinience :S"
+                f"Fatal Error: Pytropos doesn't support {node_type.__name__!r} yet."
+                " Sorry for the inconvinience :S"
             )
         # else:
         #     return super().visit(node)  # type: ignore
@@ -711,3 +711,33 @@ class PytroposTransformer(ast3.NodeTransformer):
             args=node.elts,
             keywords=[],
         )
+
+    def visit_Subscript(self, node: ast3.Subscript) -> VisitorOutput:
+        """Transforms a subscript into something pytropos can handle
+
+        For example, it converts::
+
+            a[2]
+
+        into::
+
+            `a`.subs(pos)[`2`]
+            st['a'].subs(pos)[pt.int(2)]"""
+        self.generic_visit(node)
+
+        node.value = ast3.Call(
+            func=ast3.Attribute(
+                value=node.value,
+                attr='subs',
+                ctx=ast3.Load(),
+            ),
+            args=[pos_as_tuple(node)],
+            keywords=[],
+        )
+
+        return node
+
+    def visit_Index(self, node: ast3.Index) -> VisitorOutput:
+        """Starred doesn't requires to be transformed (but its contents do)."""
+        self.generic_visit(node)
+        return node

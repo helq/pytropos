@@ -131,7 +131,7 @@ class Store(AbstractDomain):
                 # handling the mutable case
                 left_val = self._global_scope[key]
                 if left_val.is_mut():
-                    left_val.convert_into_top(mut_heap, "left")
+                    left_val.new_vals_to_top(mut_heap, "left")
 
                 new_globals[key] = PythonValue.top()
 
@@ -140,7 +140,7 @@ class Store(AbstractDomain):
                 # handling the mutable case
                 right_val = other._global_scope[key]
                 if right_val.is_mut():
-                    right_val.convert_into_top(mut_heap, "right")
+                    right_val.new_vals_to_top(mut_heap, "right")
 
                 new_globals[key] = PythonValue.top()
 
@@ -154,12 +154,12 @@ class Store(AbstractDomain):
                         new_globals[key] = val1.join_mut(val2, mut_heap)
 
                     else:  # val1 mutable, val2 not mutable
-                        val1.convert_into_top(mut_heap, 'left')
+                        val1.new_vals_to_top(mut_heap, 'left')
                         new_globals[key] = PythonValue.top()
 
                 else:
                     if val2.is_mut():  # val1 not mutable, val2 mutable
-                        val2.convert_into_top(mut_heap, 'right')
+                        val2.new_vals_to_top(mut_heap, 'right')
                         new_globals[key] = PythonValue.top()
 
                     else:  # both (val1 and val2) are not mutable
