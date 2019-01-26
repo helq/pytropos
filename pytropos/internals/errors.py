@@ -45,6 +45,8 @@ WarningType = str
 # E018: TypeError: ----- index out of range
 # E019: TypeError: '-----' object doesn't support item deletion
 # E020: TypeError: '-----' object does not support item assignment
+# E021: TypeError: '---' is an invalid keyword argument for -------()
+# E022: TypeError: ---() argument must be ---, not '---'
 
 # W201: Global variable not set
 # W202: Local variable not set

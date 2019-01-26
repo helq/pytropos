@@ -5,7 +5,7 @@ from typing import (
 
 from .python_values import (
     AbstractMutVal, PythonValue, Args, AttrsContainer, AttrsMutContainer,
-    SubscriptsContainer
+    SubscriptsContainer, SubscriptsTopContainer, AttrsTopContainer
 )
 from .wrappers import BuiltinMethod
 from ..builtin_values import NoneType, Int
@@ -110,6 +110,38 @@ class TupleOrList(AbstractMutVal):
             del self.size
         self._im_top = True
 
+    def check_index(self, ival: Int, pos: Optional[Pos] = None) -> int:
+        """Checks if the index is valid or non-valid.
+
+        Non-valid returns:
+
+        - -1: means that the index is outside of bounds
+        - -2: means that the index is unknown, so changing the state using this index
+          should invalid the list
+
+        otherwise a number in the range [0, len(array)]"""
+        if ival.is_top():
+            return -2
+
+        index = ival.val
+        assert isinstance(index, int)
+
+        size = self.size
+
+        if index < 0:
+            index += size[1]
+            if size[0] != size[1]:
+                return -2
+
+        if index < -1 or index >= size[1]:
+            TypeCheckLogger().new_warning(
+                "E017",
+                f"TypeError: {self.type_name} index out of range",
+                pos)
+            return -1
+
+        return index
+
 
 class List(TupleOrList):
     __top = None  # type: List
@@ -122,7 +154,7 @@ class List(TupleOrList):
         super().__init__(lst=lst, size=size, children=children)
 
         self.children[('attr', 'append')] = \
-            PythonValue(BuiltinMethod('append', List._append, self))
+            PythonValue(BuiltinMethod('append', List._method_append, self))
 
     def __repr__(self) -> 'str':
         if self.is_top():
@@ -152,9 +184,11 @@ class List(TupleOrList):
         return "list"
 
     def get_attrs(self) -> 'AttrsContainer':
+        if self.is_top():
+            return AttrsTopContainer()
         return AttrsMutContainer('List', self.children, read_only=True)
 
-    def _append(self, store: Any, args: 'Args', pos: Optional[Pos]) -> 'PythonValue':
+    def _method_append(self, store: Any, args: 'Args', pos: Optional[Pos]) -> 'PythonValue':
         if len(args.vals) != 1 or args.args or args.kargs:
             if args.kargs:
                 TypeCheckLogger().new_warning(
@@ -183,6 +217,8 @@ class List(TupleOrList):
         return PythonValue(NoneType())
 
     def get_subscripts(self, pos: 'Optional[Pos]') -> SubscriptsContainer:
+        if self.is_top():
+            return SubscriptsTopContainer()
         return SubscriptsTupleOrListContainer(self, read_only=False, pos=pos)
 
 
@@ -221,9 +257,13 @@ class Tuple(TupleOrList):
         return "tuple"
 
     def get_attrs(self) -> 'AttrsContainer':
+        if self.is_top():
+            return AttrsTopContainer()
         return AttrsMutContainer('Tuple', self.children, read_only=True)
 
     def get_subscripts(self, pos: 'Optional[Pos]') -> SubscriptsContainer:
+        if self.is_top():
+            return SubscriptsTopContainer()
         return SubscriptsTupleOrListContainer(self, read_only=True, pos=pos)
 
 
@@ -239,38 +279,6 @@ class SubscriptsTupleOrListContainer(SubscriptsContainer):
         self.read_only = read_only
         self.pos = pos
 
-    def check_index(self, ival: Int) -> int:
-        """Checks if the index is valid or non-valid.
-
-        Non-valid returns:
-
-        - -1: means that the index is outside of bounds
-        - -2: means that the index is unknown, so changing the state using this index
-          should invalid the list
-
-        otherwise a number in the range [0, len(array)]"""
-        if ival.is_top():
-            return -2
-
-        index = ival.val
-        assert isinstance(index, int)
-
-        size = self.torl.size
-
-        if index < 0:
-            index += size[1]
-            if size[0] != size[1]:
-                return -2
-
-        if index < -1 or index >= size[1]:
-            TypeCheckLogger().new_warning(
-                "E017",
-                f"TypeError: {self.torl.type_name} index out of range",
-                self.pos)
-            return -1
-
-        return index
-
     def __getitem__(self, key: PythonValue) -> PythonValue:
         if key.is_top():
             return PythonValue.top()
@@ -285,7 +293,7 @@ class SubscriptsTupleOrListContainer(SubscriptsContainer):
             return PythonValue.top()
 
         # It's an integer but we don't know which
-        index = self.check_index(key.val)
+        index = self.torl.check_index(key.val, self.pos)
         if index >= 0 and ('index', index) in self.torl.children:
             return self.torl.children['index', index]
         else:
@@ -317,7 +325,7 @@ class SubscriptsTupleOrListContainer(SubscriptsContainer):
             return
 
         # It's an integer but we don't know which
-        index = self.check_index(key.val)
+        index = self.torl.check_index(key.val, self.pos)
         if index == -2:
             self.torl.convert_into_top(set())
         elif index >= 0:
@@ -357,7 +365,7 @@ class SubscriptsTupleOrListContainer(SubscriptsContainer):
             return
 
         # It's an integer but we don't know which
-        index = self.check_index(key.val)
+        index = self.torl.check_index(key.val, self.pos)
         if index >= 0:
             self.torl.children['index', index] = val
         elif index == -2:

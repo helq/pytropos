@@ -97,6 +97,8 @@ class PythonValue(AbstractDomain):
                  ) -> 'PythonValue':
         """Copies a mutable object recursively"""
         assert isinstance(self.val, AbstractMutVal)
+        if self.is_top():
+            return self
 
         # print(f"Copying object with mut_id: {self.mut_id}")
         if self.mut_id in mut_heap:
@@ -433,6 +435,9 @@ class AbstractMutVal(AbstractValue):
         """Makes a copy of the current AbstractMutVal.
 
         It must be overwritten to add stuff that is not children (PythonValue's)"""
+        if self.is_top():
+            return self
+
         children = dict(self.children)
         for k, v in children.items():
             if v.is_mut():
@@ -508,6 +513,8 @@ class AbstractMutVal(AbstractValue):
         return cls(children=new_children)
 
     def get_attrs(self) -> 'AttrsContainer':
+        if self.is_top():
+            return AttrsTopContainer()
         return AttrsMutContainer(self.type_name, self.children)
 
 

@@ -4,8 +4,9 @@ from .python_values.python_values import PythonValue
 from .python_values.builtin_mutvalues import List, Tuple
 from .python_values import Args
 from .builtin_values import Int, Float, Bool, NoneType
+from .python_values.wrappers import BuiltinModule
 
-__all__ = ['int', 'float', 'bool', 'none', 'list', 'tuple', 'Args']
+__all__ = ['int', 'float', 'bool', 'none', 'list', 'tuple', 'Args', 'Top', 'ModuleTop']
 
 
 if TYPE_CHECKING:
@@ -63,3 +64,7 @@ def list(lst: 'Optional[List_[PythonValue]]' = None) -> PythonValue:
 def tuple(*tpl: 'PythonValue') -> PythonValue:
     """Returns a Tuple wrapped into a PythonValue"""
     return PythonValue(Tuple(lst=tpl))  # type: ignore
+
+
+Top = PythonValue.top()
+ModuleTop = PythonValue(BuiltinModule.top())

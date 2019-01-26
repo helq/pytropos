@@ -1,4 +1,4 @@
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Tuple
 from typing import Dict, Type  # noqa: F401
 
 from typed_ast import ast3
@@ -741,3 +741,52 @@ class PytroposTransformer(ast3.NodeTransformer):
         """Starred doesn't requires to be transformed (but its contents do)."""
         self.generic_visit(node)
         return node
+
+    def visit_Import(self, node: ast3.Import) -> VisitorOutput:
+
+        # Checking if the library being loaded is supported by pytropos
+        non_supported_modules: 'List[str]' = []
+        modules_supported:     'List[Tuple[str, Optional[str]]]' = []
+        for alias in node.names:
+            if alias.name in {'numpy'}:
+                modules_supported.append( (alias.name, alias.asname) )  # noqa: E201,E202
+            else:
+                non_supported_modules.append(
+                    alias.name if alias.asname is None else alias.asname
+                )
+
+        # Loading fake modules from pytropos (if supported)
+        libs: List[ast3.AST] = []
+        if len(modules_supported) > 0:
+            libs.append(
+                ast3.ImportFrom(
+                    module='pytropos.libs_checking',
+                    names=[
+                        ast3.alias(name=f'{name}_module', asname=None)
+                        for [name, asname] in modules_supported
+                    ],
+                    level=0,
+                )
+            )
+            libs.extend(
+                ast3.parse(  # type: ignore
+                    '\n'.join([
+                        f"st['{asname}'] = {name}_module"
+                        for name, asname in modules_supported
+                    ])
+                ).body
+            )
+
+        # Loading modules as Any (if not supported)
+        if len(non_supported_modules) > 0:
+            libs.extend(
+                ast3.parse(  # type: ignore
+                    '\n'.join([f"st['{name}'] = pt.ModuleTop" for name in non_supported_modules])
+                ).body
+            )
+
+        # if the lib hasn't been recognized in the supported libraries, it is deleted
+        if len(libs) == 0:
+            return None
+
+        return libs

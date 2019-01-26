@@ -8,6 +8,7 @@ Subpackages
 
     pytropos.ast_transformer
     pytropos.internals
+    pytropos.libs_checking
 
 Submodules
 ----------
