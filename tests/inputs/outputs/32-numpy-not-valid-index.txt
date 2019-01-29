@@ -1,0 +1,5 @@
+tests/inputs/32-numpy-not-valid-index.py:4:4: E017 TypeError: 'float' object cannot be interpreted as an integer
+tests/inputs/32-numpy-not-valid-index.py:5:4: E021 TypeError: ndarray() argument must be ___, not 'float'
+tests/inputs/32-numpy-not-valid-index.py:6:4: E021 TypeError: TypeError: ndarray() takes from 1 to 1 arguments (2 given)
+tests/inputs/32-numpy-not-valid-index.py:8:4: E021 TypeError: TypeError: ndarray() takes from 1 to 1 arguments (0 given)
+tests/inputs/32-numpy-not-valid-index.py:9:4: E017 TypeError: 'list' object cannot be interpreted as an integer

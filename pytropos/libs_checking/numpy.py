@@ -7,11 +7,14 @@ from ..internals.values.python_values.python_values import (
     AbstractMutVal, PythonValue, AttrsContainer, AttrsMutContainer,
     AttrsTopContainer
 )
+from ..internals.values.abstract_value import AbstractValue
 from ..internals.values.builtin_values import Int
+import pytropos.internals.values as pv
 from ..internals.values.python_values.builtin_mutvalues import Tuple, List
 from ..internals.values.python_values.wrappers import (
     BuiltinClass, BuiltinModule
 )
+from ..internals.errors import TypeCheckLogger
 
 from ..internals.miscelaneous import Pos
 
@@ -27,19 +30,48 @@ class NdArray(AbstractMutVal):
         if shape is not None and not shape.is_top():
             # We have warrantied from BuiltinClass that this shape.val is either:
             # - Tuple
+            # - List
             # - Int
             # - 'PT.Top'
             assert isinstance(shape.val, (Tuple, Int, List))
             if isinstance(shape.val, Int):
                 shape = PythonValue(Tuple([shape]))
-            # TODO(helq): In case `shape` is list, check that it contains only ints!!
+            elif isinstance(shape.val, List):
+                shape = PythonValue(Tuple.fromList(shape.val))
+            elif shape.is_top():
+                shape = PythonValue(Tuple.top())
+
+            assert isinstance(shape.val, Tuple)
+
+            for k in shape.val.children:
+                if isinstance(k, tuple) and k[0] == 'index':
+                    value = shape.val.children[k]
+                    if value.is_top():
+                        shape.val.children[k] = pv.Top
+                    elif not isinstance(value.val, Int):
+                        assert isinstance(value.val, AbstractValue)
+                        TypeCheckLogger().new_warning(
+                            "E017",
+                            f"TypeError: '{value.val.type_name}' object cannot"
+                            " be interpreted as an integer",
+                            pos)
+                        shape.val.children[k] = pv.int()
+
             self.children['shape'] = shape
+
+            # self.children[('attr', 'dot')] = \
+            #     PythonValue(BuiltinMethod('dot', NdArray._method_dot, self))
 
         elif children is None:  # shape is None and children is None
             self._im_top = True
             return
 
         self._im_top = False
+
+    def __repr__(self) -> str:
+        if self.is_top():
+            return "NdArray()"
+        return f"NdArray({self.children['shape']})"
 
     def __eq__(self, other: Any) -> 'bool':
         if not type(other) is type(self):

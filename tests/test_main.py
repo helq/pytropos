@@ -2,7 +2,7 @@ import glob
 from pytest import raises
 import pytest
 from os import path
-from typing import Any, Tuple, Dict, Optional
+from typing import Any, Tuple, Dict, Optional, List
 
 from pytropos import metadata
 import pytropos.main as main
@@ -15,7 +15,22 @@ from pytropos.internals.values.python_values import PythonValue
 #
 parametrize = pytest.mark.parametrize
 
-inputs = glob.glob('tests/inputs/??-*.py')
+
+only_with_output = True  # This set to false to check even for incomplete tests
+
+# Obtaining which input files should be processed
+inputs_raw = glob.glob('tests/inputs/??-*.py')
+
+if only_with_output:
+    inputs: List[str] = []
+
+    for filepath in inputs_raw:
+        dir_, name = path.split(filepath)
+        output_path = path.join(dir_, 'outputs', path.splitext(name)[0]+'.txt')
+        if path.isfile(output_path):
+            inputs.append(filepath)
+else:
+    inputs = inputs_raw
 
 
 class TestMain(object):

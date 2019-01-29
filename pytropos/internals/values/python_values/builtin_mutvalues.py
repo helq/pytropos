@@ -153,8 +153,9 @@ class List(TupleOrList):
                  ) -> None:
         super().__init__(lst=lst, size=size, children=children)
 
-        self.children[('attr', 'append')] = \
-            PythonValue(BuiltinMethod('append', List._method_append, self))
+        if lst is not None:
+            self.children[('attr', 'append')] = \
+                PythonValue(BuiltinMethod('append', List._method_append, self))
 
     def __repr__(self) -> 'str':
         if self.is_top():
@@ -186,7 +187,7 @@ class List(TupleOrList):
     def get_attrs(self) -> 'AttrsContainer':
         if self.is_top():
             return AttrsTopContainer()
-        return AttrsMutContainer('List', self.children, read_only=True)
+        return AttrsMutContainer('list', self.children, read_only=True)
 
     def _method_append(self, store: Any, args: 'Args', pos: Optional[Pos]) -> 'PythonValue':
         if len(args.vals) != 1 or args.args or args.kargs:
@@ -265,6 +266,13 @@ class Tuple(TupleOrList):
         if self.is_top():
             return SubscriptsTopContainer()
         return SubscriptsTupleOrListContainer(self, read_only=True, pos=pos)
+
+    @staticmethod
+    def fromList(lst: List) -> 'Tuple':
+        new_children = {k: v for k, v in lst.children.items() if k[0] == 'index'}
+        new_tuple = Tuple(children=new_children)
+        new_tuple.size = lst.size
+        return new_tuple
 
 
 class SubscriptsTupleOrListContainer(SubscriptsContainer):

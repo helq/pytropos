@@ -1,0 +1,2 @@
+tests/inputs/21-list-index-outofrange.py:1:0: E017 TypeError: list index out of range
+tests/inputs/21-list-index-outofrange.py:3:0: E017 TypeError: list index out of range

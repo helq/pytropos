@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, Iterable
 from typing import Optional, Dict  # noqa: F401
 
 from ..values.python_values import PythonValue
@@ -55,6 +55,9 @@ class Store(AbstractDomain):
                 new_globals[k] = val  # non mutable objects don't need to be cloned
 
         return new_store
+
+    def items(self) -> Iterable[Tuple[str, PythonValue]]:
+        return self._global_scope.copy().items()
 
     def __getitem__(self, key_: Union[str, Tuple[str, Pos]]) -> PythonValue:
         if not isinstance(key_, tuple):

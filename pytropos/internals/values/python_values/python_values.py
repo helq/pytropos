@@ -140,6 +140,7 @@ class PythonValue(AbstractDomain):
             if (left_iden in mut_heap) and mut_heap[left_iden][1] == other.mut_id:
                 # assert right_iden in mut_heap
                 assert mut_heap[right_iden][0] == self.mut_id
+                assert mut_heap[right_iden][2] is mut_heap[left_iden][2]
                 return mut_heap[left_iden][2]
 
             # left has been already been joined with other object
@@ -186,8 +187,8 @@ class PythonValue(AbstractDomain):
     def __repr__(self) -> str:
         if self.val is PT.Top:
             return "Top"
-        # elif self.val is PT.Undefined:
-            # return "Undefined"
+        elif self.val is PT.InConstruction:
+            return "InConstruction"
         else:  # self.type is PT.Top
             assert not isinstance(self.val, PT)
             if self.is_mut():

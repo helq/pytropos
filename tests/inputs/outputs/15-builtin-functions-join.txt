@@ -1,0 +1,2 @@
+tests/inputs/15-builtin-functions-join.py:1:3: W201 Global variable `_` isn't set
+tests/inputs/15-builtin-functions-join.py:6:0: E014 TypeError: append() takes exactly one argument (0 given)

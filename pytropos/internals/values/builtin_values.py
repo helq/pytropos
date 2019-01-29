@@ -45,6 +45,9 @@ class Int(AbstractValue):
         """
         self.val = val
 
+    def __repr__(self) -> str:
+        return f"Int({self.val})"
+
     __top = None  # type: Int
 
     @classmethod
@@ -165,6 +168,9 @@ class Float(AbstractValue):
         If val is None, then the Float value is Top
         """
         self.val = val
+
+    def __repr__(self) -> str:
+        return f"Float({self.val})"
 
     __top = None  # type: Float
 
@@ -321,6 +327,9 @@ class Bool(AbstractValue):
         """
         self.val = val
 
+    def __repr__(self) -> str:
+        return f"Bool({self.val})"
+
     __top = None  # type: Bool
 
     @classmethod
@@ -372,6 +381,9 @@ class NoneType(AbstractValue):
         if cls.__instance is None:
             cls.__instance = super().__new__(cls)
         return cls.__instance
+
+    def __repr__(self) -> str:
+        return f"NoneType()"
 
     @classmethod
     def top(cls) -> 'NoneType':

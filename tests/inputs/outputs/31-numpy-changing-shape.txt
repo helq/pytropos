@@ -1,0 +1,1 @@
+tests/inputs/31-numpy-changing-shape.py:4:0: E012 AttributeError: 'ndarray' object attribute 'shape' is read-only

@@ -211,8 +211,17 @@ def run_transformed_type_checking_code(
         return (2, None)
 
     store = pt_globals['st']
-    derror("\nLast computed variables values (Store):", verb=2)
-    derror(store, end='\n\n', verb=2)
+
+    if debug_print.verbosity == 2:
+        derror("\nLast computed variables values (Store):", verb=2)
+        derror(store, end='\n\n', verb=2)
+
+    if debug_print.verbosity == 3:
+        derror("\nLast computed variables values (Store):", verb=3)
+        derror("Store({", verb=3)
+        for i, v in store.items():
+            derror(f"  {i!r}: PythonValue({v.val}),", verb=3)
+        derror("})\n", verb=3)
 
     if len(TypeCheckLogger().warnings) > 0:
         derror(TypeCheckLogger())

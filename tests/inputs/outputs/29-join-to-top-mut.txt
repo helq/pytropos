@@ -1,0 +1,1 @@
+tests/inputs/29-join-to-top-mut.py:1:3: W201 Global variable `_` isn't set

@@ -40,6 +40,19 @@ class BuiltinMethod(AbstractMutVal):
 
         self.__im_top = False
 
+    def __repr__(self) -> str:
+        if self.is_top():
+            return "BuiltinMethod()"
+        return f"BuiltinMethod({self.name!r}, fun={self.fun.__qualname__}," \
+               f" fun_self={self.children[('attr', '__self__')]})"
+
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.is_top() and other.is_top():
+            return True
+        return super().__eq__(other) and self.name == other.name and self.fun == other.fun
+
     def fun_call(self, store: Any, args: 'Args', pos: Optional[Pos]) -> PythonValue:
         if self.is_top():
             return PythonValue.top()
@@ -133,6 +146,28 @@ class BuiltinClass(AbstractMutVal):
 
         self.__im_top = False
 
+    def __repr__(self) -> str:
+        if self.is_top():
+            return "BuiltinClass()"
+        args_to_str = [('('+', '.join(c_.__name__ for c_ in c)+')'
+                        if isinstance(c, tuple)
+                        else c.__name__)
+                       for c in self.args]
+        return f"BuiltinClass({self.klass_name!r}, klass={self.klass.__qualname__}," \
+               f" args=[{', '.join(str(c) for c in args_to_str)}]," \
+               f" kargs={self.kargs})"
+
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.is_top() and other.is_top():
+            return True
+        return super().__eq__(other) \
+            and self.klass_name == other.klass_name \
+            and self.klass == other.klass \
+            and self.args == other.args \
+            and self.kargs == other.kargs
+
     __top = None  # type: BuiltinClass
 
     @classmethod
@@ -165,6 +200,7 @@ class BuiltinClass(AbstractMutVal):
         if self.is_top():
             return self
 
+        new.klass_name = self.klass_name
         new.klass = self.klass
         new.args = self.args
         new.kargs = self.kargs
@@ -180,6 +216,7 @@ class BuiltinClass(AbstractMutVal):
         if self.klass is other.klass \
                 and self.args == other.args \
                 and self.kargs == other.kargs:
+            new.klass_name = self.klass_name
             new.klass = self.klass
             new.args = self.args
             new.kargs = self.kargs
@@ -274,6 +311,22 @@ class BuiltinModule(AbstractMutVal):
             return
 
         self.__im_top = False
+
+    def __repr__(self) -> str:
+        if self.is_top():
+            return "BuiltinModule()"
+        return f"BuiltinModule({self.mod_name!r}," \
+               f" funcs={ {k[1]: v.val for k, v in self.children.items() if k[0]=='attr'} }," \
+               f" read_only={self.read_only})"
+
+    def __eq__(self, other: Any) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.is_top() and other.is_top():
+            return True
+        return super().__eq__(other) \
+            and self.read_only == other.read_only \
+            and self.mod_name == other.mod_name
 
     __top = None  # type: BuiltinModule
 
