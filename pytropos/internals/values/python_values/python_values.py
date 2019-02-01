@@ -554,11 +554,13 @@ class AttrsMutContainer(AttrsContainer):
             self,
             type_name: str,
             children: 'Dict[Any, PythonValue]',
+            non_mut_attrs: 'Optional[Dict[Any, Callable[[], PythonValue]]]' = None,
             read_only: bool = False
     ) -> None:
         self.type_name = type_name
         self.children = children
         self.read_only = read_only
+        self.non_mut_attrs = {} if non_mut_attrs is None else non_mut_attrs
 
     def __getitem__(self, key_: 'Union[str, Tuple[str, Pos]]') -> PythonValue:
         if not isinstance(key_, tuple):
@@ -566,6 +568,9 @@ class AttrsMutContainer(AttrsContainer):
             src_pos = None  # type: Optional[Pos]
         else:
             key, src_pos = key_
+
+        if key in self.non_mut_attrs:
+            return self.non_mut_attrs[key]()
 
         try:
             return self.children[('attr', key)]
@@ -585,7 +590,7 @@ class AttrsMutContainer(AttrsContainer):
         else:
             key, src_pos = key_
 
-        if self.read_only:
+        if self.read_only or key in self.non_mut_attrs:
             TypeCheckLogger().new_warning(
                 "E012",
                 f"AttributeError: '{self.type_name}' object attribute '{key}' is read-only",
@@ -600,7 +605,7 @@ class AttrsMutContainer(AttrsContainer):
         else:
             key, src_pos = key_
 
-        if self.read_only:
+        if self.read_only or key in self.non_mut_attrs:
             TypeCheckLogger().new_warning(
                 "E012",
                 f"AttributeError: '{self.type_name}' object attribute '{key}' is read-only",

@@ -82,6 +82,10 @@ class NdArray(AbstractMutVal):
             return
 
         self._im_top = False
+        self.non_mut_attrs = {
+            'shape': self._attr_shape,
+            'ndim': self._attr_ndim,
+        }
 
     def __repr__(self) -> str:
         if self.is_top():
@@ -136,7 +140,7 @@ class NdArray(AbstractMutVal):
     def get_attrs(self) -> 'AttrsContainer':
         if self.is_top():
             return AttrsTopContainer()
-        return AttrsNdArrayContainer('ndarray', self.children, read_only=True)
+        return AttrsMutContainer('ndarray', self.children, self.non_mut_attrs, read_only=True)
 
     @property
     def shape(self) -> 'Tuple':
@@ -186,6 +190,20 @@ class NdArray(AbstractMutVal):
         else:
             return NdArray(new_shape)
 
+    def _attr_shape(self) -> 'PythonValue':
+        assert isinstance(self.children['shape'].val, Tuple)
+        # This is safe because shape should be a tuple with only integer values
+        return self.children['shape'].copy_mut({})
+
+    def _attr_ndim(self) -> 'PythonValue':
+        shape = self.children['shape'].val
+        assert isinstance(shape, Tuple)
+
+        if shape.is_size_determined():
+            return PythonValue(Int(shape.size[0]))
+        else:
+            return PythonValue(Int.top())
+
     # def _method_dot(self, other: 'PythonValue', pos: Optional[Pos]) -> 'PythonValue':
     #     if self.is_top() or other.is_top():
     #         return PythonValue.top()
@@ -197,22 +215,6 @@ class NdArray(AbstractMutVal):
     #         assert isinstance(other_array.val, NdArray)
     #         # COMPLETE_ME ...  # CHECKING HERE!!! COMPLETE ME!!!
     #     return PythonValue(new_array)
-
-
-class AttrsNdArrayContainer(AttrsMutContainer):
-    def __getitem__(self, key_: 'Union[str, Tuple_[str, Pos]]') -> PythonValue:
-        if not isinstance(key_, tuple):
-            key = key_
-            src_pos = None  # type: Optional[Pos]
-        else:
-            key, src_pos = key_
-
-        if key is 'shape':
-            assert isinstance(self.children['shape'].val, Tuple)
-            # This is safe because shape should be a tuple with only integer values
-            return self.children['shape'].copy_mut({})
-
-        return super().__getitem__(key_)
 
 
 def _function_zero(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
@@ -278,6 +280,8 @@ def _broadcast(left: Tuple, right: Tuple, pos: 'Optional[Pos]') -> 'Optional[Tup
     return Tuple(new_shape)
 
 
+# TODO(helq): Should generate warning to the user in case the array is not made of
+# floats, for example np.array([[2,3], [6]]) has shape (2,) and its dtype is object :S
 def getshape_list(lst: Union[List, Tuple]) -> 'Tuple':  # noqa: C901
     if lst.is_top():
         return Tuple.top()  # type: ignore
@@ -422,6 +426,9 @@ zeros = BuiltinFun(
 ones = BuiltinFun(
     'ones', _function_zero, args=[(Tuple, Int, List)],
 )
+arange = BuiltinFun(
+    'arange', _function_zero, args=[Int],
+)
 
 numpy_module = PythonValue(BuiltinModule(
     'numpy', {
@@ -429,5 +436,6 @@ numpy_module = PythonValue(BuiltinModule(
         'array': array,
         'zeros': zeros,
         'ones': ones,
+        'arange': arange,
     }
 ))
