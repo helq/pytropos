@@ -34,16 +34,29 @@ class Store(AbstractDomain):
             else:
                 self._im_top = False
                 self._global_scope = {}  # type: Dict[str, PythonValue]
+                self._builtin_values = {}  # type: Dict[str, PythonValue]
         else:
             self._im_top = False
             self._global_scope = store._global_scope.copy()
+            self._builtin_values = store._builtin_values.copy()
+
+    __top_value = None  # type: Store
+
+    @classmethod
+    def top(cls) -> 'Store':
+        if not Store.__top_value:
+            Store.__top_value = Store(1)
+        return Store.__top_value
+
+    def is_top(self) -> bool:
+        return self._im_top
 
     def copy(self) -> 'Store':
         """
         Returns a copy of the Store.
         Any modification to this shouldn't alter the original store.
         """
-        new_store = Store(self)
+        new_store = Store()
 
         mut_heap = {}  # type: Dict[int, PythonValue]
         new_globals = new_store._global_scope
@@ -53,6 +66,8 @@ class Store(AbstractDomain):
                 new_globals[k] = val.copy_mut(mut_heap)
             else:
                 new_globals[k] = val  # non mutable objects don't need to be cloned
+
+        new_store._builtin_values = self._builtin_values
 
         return new_store
 
@@ -68,6 +83,8 @@ class Store(AbstractDomain):
 
         if key in self._global_scope:
             return self._global_scope[key]
+        elif key in self._builtin_values:
+            return self._builtin_values[key]
 
         TypeCheckLogger().new_warning(
             "W201",
@@ -109,22 +126,13 @@ class Store(AbstractDomain):
     def __repr__(self) -> str:
         return f"Store({self._global_scope})"
 
-    __top_value = None  # type: Store
-
-    @classmethod
-    def top(cls) -> 'Store':
-        if not Store.__top_value:
-            Store.__top_value = Store(1)
-        return Store.__top_value
-
-    def is_top(self) -> bool:
-        return self._im_top
-
     def join(self, other: 'Store') -> 'Store':
         left_keys = set(self._global_scope)
         right_keys = set(other._global_scope)
         keys = left_keys.union(right_keys)
         new_store = Store()
+        assert self._builtin_values is other._builtin_values
+        new_store._builtin_values = self._builtin_values
         new_globals = new_store._global_scope
         mut_heap = {}  # type: Dict[Tuple[str, int], Tuple[int, int, PythonValue]]
 
@@ -178,6 +186,8 @@ class Store(AbstractDomain):
         keys = set(self._global_scope).union(other._global_scope)
         common_keys = set(self._global_scope).intersection(other._global_scope)
         new_store = Store()
+        assert self._builtin_values is other._builtin_values
+        new_store._builtin_values = self._builtin_values
         fix_point = True
 
         for key in keys:

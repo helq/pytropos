@@ -305,6 +305,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                     'import pytropos as pt\n'
                     # 'import pytropos.libs.base\n'
                     'st = pt.Store()\n'
+                    'pt.loadBuiltinFuncs(st)\n'
                     # 'st.load_module(pytropos.libs.base, "__builtins__")\n'
                     f'fn = {self.filename!r}\n'
                 ).body +

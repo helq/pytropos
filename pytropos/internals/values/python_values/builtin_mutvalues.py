@@ -4,10 +4,10 @@ from typing import (
 )
 
 from .python_values import (
-    AbstractMutVal, PythonValue, Args, AttrsContainer, AttrsMutContainer,
+    AbstractMutVal, PythonValue, AttrsContainer, AttrsMutContainer,
     SubscriptsContainer, SubscriptsTopContainer, AttrsTopContainer
 )
-from .wrappers import BuiltinMethod
+from .wrappers import BuiltinFun
 from ..builtin_values import NoneType, Int
 from ..abstract_value import AbstractValue
 from ...errors import TypeCheckLogger
@@ -20,7 +20,7 @@ __all__ = ['List', 'Tuple']
 class TupleOrList(AbstractMutVal):
     def __init__(self,
                  lst: 'Optional[List_[PythonValue]]' = None,
-                 size: 'Optional[Tuple_[int,int]]' = None,
+                 size: 'Optional[Tuple_[int, float]]' = None,
                  children: 'Optional[Dict[Any, PythonValue]]' = None
                  ) -> None:
         super().__init__(children=children)
@@ -33,12 +33,13 @@ class TupleOrList(AbstractMutVal):
 
             n = len(lst)
             if size is None:
-                self.size = (n, n)
+                self.size = (n, n)  # type: Tuple_[int, float]
             else:
                 assert size[0] <= n <= size[1]
+                assert isinf(size[1]) == isinstance(size[1], float)
                 self.size = size
 
-        elif children is None:  # lst is None, and children is {}
+        elif children is None:  # lst is None, and children is None
             self._im_top = True
             return
 
@@ -128,6 +129,10 @@ class TupleOrList(AbstractMutVal):
 
         size = self.size
 
+        if isinf(size[1]):
+            return -2
+        assert isinstance(size[1], int)
+
         if index < 0:
             index += size[1]
             if size[0] != size[1]:
@@ -142,6 +147,13 @@ class TupleOrList(AbstractMutVal):
 
         return index
 
+    def sorted_indices(self) -> 'List_[Tuple_[int, PythonValue]]':
+        return sorted([
+            (i[1], v)
+            for i, v in self.children.items()
+            if isinstance(i, tuple) and i[0] == 'index'
+        ])
+
 
 class List(TupleOrList):
     __top = None  # type: List
@@ -155,7 +167,12 @@ class List(TupleOrList):
 
         if lst is not None:
             self.children[('attr', 'append')] = \
-                PythonValue(BuiltinMethod('append', List._method_append, self))
+                PythonValue(BuiltinFun(
+                    'append',
+                    List._method_append,
+                    self,
+                    args=[AbstractValue]
+                ))
 
     def __repr__(self) -> 'str':
         if self.is_top():
@@ -189,38 +206,20 @@ class List(TupleOrList):
             return AttrsTopContainer()
         return AttrsMutContainer('list', self.children, read_only=True)
 
-    def _method_append(self, store: Any, args: 'Args', pos: Optional[Pos]) -> 'PythonValue':
-        if len(args.vals) != 1 or args.args or args.kargs:
-            if args.kargs:
-                TypeCheckLogger().new_warning(
-                    "E014",
-                    f"TypeError: insert() takes no keyword arguments",
-                    pos)
-            elif args.args:
-                TypeCheckLogger().new_warning(
-                    "F001",
-                    f"Sorry! Pytropos doesn't support calling append with a starred variable",
-                    pos)
-            else:
-                TypeCheckLogger().new_warning(
-                    "E014",
-                    f"TypeError: append() takes exactly one argument ({len(args.vals)} given)",
-                    pos)
-            return PythonValue.top()
-
-        if self.size[0] == self.size[1]:
-            s = self.size[0]
-            self.size = (s+1, s+1)
-            self.children[('index', s)] = args.vals[0]
-        else:
-            self.size = (self.size[0]+1, self.size[1]+1)
-
-        return PythonValue(NoneType())
-
     def get_subscripts(self, pos: 'Optional[Pos]') -> SubscriptsContainer:
         if self.is_top():
             return SubscriptsTopContainer()
         return SubscriptsTupleOrListContainer(self, read_only=False, pos=pos)
+
+    def _method_append(self, val: 'PythonValue', pos: Optional[Pos]) -> 'PythonValue':
+        if self.size[0] == self.size[1]:
+            s = self.size[0]
+            self.size = (s+1, s+1)
+            self.children[('index', s)] = val
+        else:
+            self.size = (self.size[0]+1, self.size[1]+1)
+
+        return PythonValue(NoneType())
 
 
 class Tuple(TupleOrList):

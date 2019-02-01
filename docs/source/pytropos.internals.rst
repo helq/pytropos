@@ -6,6 +6,7 @@ Subpackages
 
 .. toctree::
 
+    pytropos.internals.builtin_funcs
     pytropos.internals.control
     pytropos.internals.store
     pytropos.internals.values

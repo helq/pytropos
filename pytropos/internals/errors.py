@@ -28,6 +28,7 @@ WarningType = str
 # Table of known errors:
 # *Deprecated
 # F001: Sorry! Pytropos doesn't support calling append with a starred variable
+# F002: Store: ----
 
 # W001*: Weird return value: Expected int or float but got ...
 # E001: ZeroDivisionError

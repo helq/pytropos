@@ -9,11 +9,5 @@ exitcode = 1
 
 store = {
   'np': numpy_module,
-  'nonexistent': PythonValue(BuiltinModule()),
-  'a': PythonValue(NdArray(pv.tuple(pv.int(2), pv.int()))),
-  'b': pv.Top,
-  'c': pv.Top,
-  'd': PythonValue(NdArray(pv.tuple())),
-  'e': pv.Top,
-  'f': PythonValue(NdArray(pv.tuple(pv.int(2), pv.int()))),
+  '_': pv.Top,
 }
