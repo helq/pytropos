@@ -83,10 +83,10 @@ class Int(AbstractValue):
             return True
         return self.val == other.val
 
-    _int_to_int_ops = set(['add', 'sub', 'mul', 'radd', 'rsub', 'rmul'])
-    _int_to_bool_ops = set(['eq', 'ne', 'lt', 'le', 'gt', 'ge'])
-    _int_to_int_ops_shift = set(['lshift', 'rshift', 'rlshift', 'rrshift'])
-    _int_to_int_ops_div = set(['truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'])
+    _int_to_int_ops = {'add', 'sub', 'mul', 'radd', 'rsub', 'rmul'}
+    _int_to_bool_ops = {'eq', 'ne', 'lt', 'le', 'gt', 'ge'}
+    _int_to_int_ops_shift = {'lshift', 'rshift', 'rlshift', 'rrshift'}
+    _int_to_int_ops_div = {'truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'}
 
     def __getattribute__(self, name: str) -> Any:
         # Checking if name is 'op_OP' (eg, 'op_add')

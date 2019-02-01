@@ -1,7 +1,6 @@
 import math
-from typing import (
-    Dict, Optional, Any, Tuple as Tuple_, Union,
-)
+import re
+from typing import Dict, Optional, Any, Tuple as Tuple_, Union
 from typing import List as List_  # noqa: F401
 
 from ..internals.values.python_values.python_values import (
@@ -18,6 +17,9 @@ from ..internals.values.python_values.wrappers import (
 from ..internals.errors import TypeCheckLogger
 
 from ..internals.miscelaneous import Pos
+
+
+extract_op = re.compile(r'op_([a-zA-Z]*)(_([a-zA-Z]*))?$')
 
 
 class NdArray(AbstractMutVal):
@@ -136,6 +138,54 @@ class NdArray(AbstractMutVal):
             return AttrsTopContainer()
         return AttrsNdArrayContainer('ndarray', self.children, read_only=True)
 
+    @property
+    def shape(self) -> 'Tuple':
+        assert not self.is_top(), "Only non Top values have shape"
+        assert isinstance(self.children['shape'].val, Tuple)
+        return self.children['shape'].val
+
+    _supported_ops = {
+        'add', 'sub', 'mul', 'radd', 'rsub', 'rmul',
+        'truediv', 'floordiv', 'mod', 'rtruediv', 'rfloordiv', 'rmod'
+    }
+
+    def __getattribute__(self, name: str) -> Any:
+        # Checking if name is 'op_OP' (eg, 'op_add')
+        op = extract_op.match(name)
+        if op and op[1] in NdArray._supported_ops:  # accepting op_add and op_add_TYPE
+            if op[3] is None:
+                return object.__getattribute__(self, 'op_OP')
+            else:
+                return object.__getattribute__(self, 'op_OP_Any')
+
+        return object.__getattribute__(self, name)
+
+    def op_OP_Any(self,
+                  other: 'AbstractValue',
+                  pos: 'Optional[Pos]'
+                  ) -> 'Optional[NdArray]':
+        if isinstance(other, NdArray):
+            return self.op_OP(other, pos)
+
+        other_array = array_from_AbstractValue(other, pos)
+
+        if other_array is None:
+            return None
+        else:
+            return self.op_OP(other_array, pos)
+
+    def op_OP(self, other: 'NdArray', pos: 'Optional[Pos]') -> 'NdArray':
+        if self.is_top():
+            return other.copy_mut({})
+        elif other.is_top():
+            return self.copy_mut({})
+
+        new_shape = _broadcast(self.shape, other.shape, pos)
+        if new_shape is None:
+            return NdArray.top()
+        else:
+            return NdArray(new_shape)
+
     # def _method_dot(self, other: 'PythonValue', pos: Optional[Pos]) -> 'PythonValue':
     #     if self.is_top() or other.is_top():
     #         return PythonValue.top()
@@ -169,6 +219,65 @@ def _function_zero(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
     return PythonValue(NdArray(val, pos))
 
 
+def __dims_from_Tuple(tpl: Tuple, size: int) -> 'List_[Int]':
+    """Returns all the values from the tuple in order.
+
+    Assumptions:
+
+    - All elements in the Tuple are Int's (they come from a NdArray)
+    - tpl.size[0] == tpl.size[1]
+    - size >= tpl.size[1]"""
+
+    lst: 'List_[Int]'
+    lst = [None]*size  # type: ignore
+
+    shift = size - tpl.size[0]
+
+    for i, dim in tpl.sorted_indices():
+        assert isinstance(dim.val, Int)
+        lst[i + shift] = dim.val
+
+    for i in range(size):
+        if lst[i] is None:
+            lst[i] = Int.top()
+
+    return lst
+
+
+def _broadcast(left: Tuple, right: Tuple, pos: 'Optional[Pos]') -> 'Optional[Tuple]':
+    if not left.is_size_determined() \
+            or not right.is_size_determined():
+        return None
+
+    dims_size = max(left.size[0], right.size[0])
+
+    left_dims = __dims_from_Tuple(left, dims_size)
+    right_dims = __dims_from_Tuple(right, dims_size)
+
+    new_shape = []  # type: List_[PythonValue]
+    for ldim, rdim in zip(left_dims, right_dims):
+        if ldim == rdim:
+            new_shape.append(PythonValue(ldim))
+        elif ldim.is_top():
+            new_shape.append(PythonValue(rdim))
+        elif rdim.is_top():
+            new_shape.append(PythonValue(ldim))
+        elif ldim.val == 1:
+            new_shape.append(PythonValue(rdim))
+        elif rdim.val == 1:
+            new_shape.append(PythonValue(ldim))
+        else:
+            TypeCheckLogger().new_warning(
+                "W502",
+                "ValueError: operands could not be broadcast together with shapes"
+                f" {left.abstract_repr} {right.abstract_repr}",
+                pos
+            )
+            return None
+
+    return Tuple(new_shape)
+
+
 def getshape_list(lst: Union[List, Tuple]) -> 'Tuple':  # noqa: C901
     if lst.is_top():
         return Tuple.top()  # type: ignore
@@ -185,8 +294,6 @@ def getshape_list(lst: Union[List, Tuple]) -> 'Tuple':  # noqa: C901
         shape['index', 0] = PythonValue(Int(lst.size[0]))
         if len(indices) != lst.size[0]:
             is_there_top = True
-
-    # print(f"showing indexes {indices}")
 
     shape_values = []  # type: List_[Tuple]
     for _, val in indices:
@@ -250,7 +357,6 @@ def getshape_list(lst: Union[List, Tuple]) -> 'Tuple':  # noqa: C901
             else:
                 theshape.size = (i+1, i+1)
 
-    # print(f"showing shape {theshape}")
     return theshape
 
 
@@ -269,21 +375,32 @@ def getshape(absval: AbstractValue) -> 'Optional[Tuple]':
         return None
 
 
+def array_from_AbstractValue(absval: AbstractValue, pos: Optional[Pos]) -> 'Optional[NdArray]':
+    """Takes any AbstractValue and tries to convert it into a NdArray.
+
+    Returns either a NdArray or None"""
+    shape = getshape(absval)
+
+    if shape is None:
+        return None
+    return NdArray(shape, pos)
+
+
 def _function_array(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
-    """Takes any PythonValu and tries to convert it into a NdArray.
+    """Takes any PythonValue and tries to convert it into a wrapped NdArray.
 
-    Returns either a NdArray or a pv.Top"""
-
+    Returns either a PythonValue(NdArray(...)) or a pv.Top"""
     if val.is_top():
         return PythonValue.top()
 
     absval = val.val
     assert isinstance(absval, AbstractValue)
-    shape = getshape(absval)
 
-    if shape is None:
+    arr = array_from_AbstractValue(absval, pos)
+
+    if arr is None:
         return PythonValue.top()
-    return PythonValue(NdArray(shape, pos))
+    return PythonValue(arr)
 
 
 ndarray = BuiltinClass(

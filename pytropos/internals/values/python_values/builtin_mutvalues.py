@@ -111,6 +111,10 @@ class TupleOrList(AbstractMutVal):
             del self.size
         self._im_top = True
 
+    def is_size_determined(self) -> bool:
+        """Checking if the size of the list or tuple can be determined"""
+        return self.size[0] == self.size[1]
+
     def check_index(self, ival: Int, pos: Optional[Pos] = None) -> int:
         """Checks if the index is valid or non-valid.
 

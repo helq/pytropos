@@ -57,6 +57,7 @@ WarningType = str
 # W213: Trying to delete already deleted non-local variable
 
 # W501: (numpy) TypeError: '----' object cannot be interpreted as an integer
+# W502: (numpy) ValueError: operands could not be broadcast together with shapes --- ---
 
 
 class TypeCheckLogger(object, metaclass=Singleton):

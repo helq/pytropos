@@ -311,10 +311,10 @@ class PythonValue(AbstractDomain):
 
             try:
                 newval = getattr(self.val, rightOpName)(other.val, pos)
-            except:  # noqa: E772
+            except AttributeError:
                 try:
                     newval = getattr(other.val, leftOpName)(self.val, pos)
-                except:  # noqa: E772
+                except AttributeError:
                     TypeCheckLogger().new_warning(
                         "E009",
                         f"TypeError: unsupported operand type(s) for {op_sym}: "
