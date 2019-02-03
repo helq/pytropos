@@ -6,4 +6,5 @@ store = {
   'a': pv.Top,
   'b': pv.Top,
   'c': pv.Top,
+  't': pv.Top,
 }

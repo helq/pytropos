@@ -254,6 +254,7 @@ class PytroposConsole(code.InteractiveConsole):
         self.locals['pt'] = pt
         self.locals['st'] = store = pt.Store()
         self.locals['fn'] = '<console>'
+        pt.loadBuiltinFuncs(store)
 
         def print_console(v: pv.PythonValue) -> None:
             store['_'] = v  # The value executed is saved on Store

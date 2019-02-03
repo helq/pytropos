@@ -12,6 +12,14 @@ pytropos.internals.control.execute module
     :undoc-members:
     :show-inheritance:
 
+pytropos.internals.control.hints module
+---------------------------------------
+
+.. automodule:: pytropos.internals.control.hints
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------

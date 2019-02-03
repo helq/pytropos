@@ -61,3 +61,18 @@ class AbstractDomain(ABC):
     def narrow_op(self, other: Any) -> 'Tuple[Any, bool]':
         """Performs the Narrow operation on self and other"""
         raise NotImplementedError()
+
+    def __bool__(self) -> bool:
+        """This prevents to use any Abstract Domain as a boolean.
+
+        I have made several times the same mistake. I've wrote something like::
+
+            if val.top():
+                ...
+
+        when I meant::
+
+            if val.is_top():
+                ...
+        """
+        raise ValueError("Why am I being used as a bool!!")

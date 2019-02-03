@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import (
     Type, List as List_, Dict, Optional, Any, Tuple as Tuple_, Callable, Union
 )
@@ -27,7 +28,7 @@ def check_fun_args_kargs(  # noqa: C901
         self_kargs: Dict[str, AcceptedTypes],
         pos: Optional[Pos]
 ) -> 'Optional[Dict[str, PythonValue]]':
-    if args.args:
+    if args.args is not None:
         TypeCheckLogger().new_warning(
             "F001",
             f"Sorry! Pytropos doesn't support calling append with a starred variable",
@@ -293,6 +294,11 @@ class BuiltinClass(AbstractMutVal):
             and self.args == other.args \
             and self.kargs == other.kargs
 
+    def class_top(self) -> 'PythonValue':
+        if self.is_top():
+            return PythonValue.top()
+        return PythonValue(self.klass.top())
+
     __top = None  # type: BuiltinClass
 
     @classmethod
@@ -451,3 +457,12 @@ class BuiltinModule(AbstractMutVal):
     @property
     def type_name(self) -> str:
         return "module"
+
+
+class BuiltinType(AbstractMutVal):
+    """Used for Annotations (type hints)"""
+
+    @abstractmethod
+    def get_absvalue(self) -> 'PythonValue':
+        """Returns the python value that the annotation stores"""
+        raise NotImplementedError()

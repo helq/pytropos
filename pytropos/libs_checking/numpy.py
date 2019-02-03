@@ -5,24 +5,134 @@ from typing import List as List_  # noqa: F401
 
 from ..internals.values.python_values.python_values import (
     AbstractMutVal, PythonValue, AttrsContainer, AttrsMutContainer,
-    AttrsTopContainer
+    AttrsTopContainer, SubscriptsContainer
 )
 from ..internals.values.abstract_value import AbstractValue
 from ..internals.values.builtin_values import Int
 import pytropos.internals.values as pv
 from ..internals.values.python_values.builtin_mutvalues import Tuple, List
 from ..internals.values.python_values.wrappers import (
-    BuiltinClass, BuiltinModule, BuiltinFun
+    BuiltinClass, BuiltinModule, BuiltinFun, BuiltinType
 )
 from ..internals.errors import TypeCheckLogger
 
 from ..internals.miscelaneous import Pos
 
 
-__all__ = ['NdArray', 'ndarray', 'array', 'zeros', 'ones', 'arange', 'numpy_module']
+__all__ = [
+    'NdArray', 'ndarray', 'array', 'zeros', 'ones', 'arange', 'numpy_module',
+    'check_numpy_module', 'NdArrayAnnotation'
+]
 
 
 extract_op = re.compile(r'op_([a-zA-Z]*)(_([a-zA-Z]*))?$')
+
+
+class NdArrayAnnotation(BuiltinType):
+    def __init__(  # noqa: C901
+            self,
+            array: 'Optional[NdArray]' = None,
+            children: 'Optional[Dict[Any, PythonValue]]' = None
+    ) -> None:
+        super().__init__(children=children)
+
+        if array is not None:
+            self.children['array'] = PythonValue(array)
+        elif children is None:
+            self._im_top = True
+            return
+
+        self._im_top = False
+
+    @property
+    def abstract_repr(self) -> str:
+        if self.is_top():
+            return 'NdArray'
+
+        array = self.children['array'].val
+        assert isinstance(array, NdArray)
+        if array.is_top():
+            return 'NdArray'
+
+        shape = array.children['shape'].val
+        assert isinstance(shape, Tuple)
+
+        return f"NdArray[{','.join(shape._elems())}]"
+
+    @property
+    def type_name(self) -> str:
+        return '<type/class NdArrayAnnotation>'
+
+    @classmethod
+    def top(cls) -> 'NdArrayAnnotation':
+        return NdArrayAnnotation()
+
+    def is_top(self) -> 'bool':
+        return self._im_top
+
+    def copy_mut(self,
+                 mut_heap: 'Dict[int, PythonValue]'
+                 ) -> 'NdArrayAnnotation':
+        if self.is_top():
+            return self
+        toret = super().copy_mut(mut_heap)
+        toret._im_top = False
+        return toret  # type: ignore
+
+    def join_mut(self,
+                 other: 'NdArrayAnnotation',
+                 mut_heap: 'Dict[Tuple_[str, int], Tuple_[int, int, PythonValue]]',
+                 ) -> 'NdArrayAnnotation':
+        assert type(self) is type(other)
+        new = super().join_mut(other, mut_heap)
+        if self.is_top() or other.is_top():
+            return self.top()
+        new._im_top = False
+        return new  # type: ignore
+
+    def get_subscripts(self, pos: 'Optional[Pos]') -> SubscriptsContainer:
+        return SubscriptsNdArrayAnnContainer(pos)
+
+    def get_absvalue(self) -> 'PythonValue':
+        if self.is_top():
+            return PythonValue(NdArray.top())
+        return self.children['array']
+
+    def get_attrs(self) -> 'AttrsContainer':
+        # TODO(helq): show error message, similar to how list does it
+        return AttrsTopContainer()
+
+
+class SubscriptsNdArrayAnnContainer(SubscriptsContainer):
+    def __init__(self, pos: 'Optional[Pos]') -> None:
+        self.pos = pos
+
+    def __getitem__(self, key: PythonValue) -> PythonValue:
+        if key.is_top():
+            return PythonValue(NdArrayAnnotation())
+
+        absval = key.val
+        if isinstance(absval, Int):
+            return PythonValue(NdArrayAnnotation(NdArray(key)))
+        if isinstance(absval, BuiltinType):
+            key = absval.get_absvalue()
+            if isinstance(key.val, Int):
+                return PythonValue(NdArrayAnnotation(NdArray(key)))
+        elif isinstance(absval, Tuple):
+            shape = absval.copy_mut({})
+            for k, v in shape.children.items():
+                if isinstance(v.val, BuiltinType):
+                    shape.children[k] = v.val.get_absvalue()
+            return PythonValue(NdArrayAnnotation(NdArray(shape)))
+
+        return PythonValue(NdArrayAnnotation())
+
+    # TODO(helq): throw warning if something weird is trying to be done
+    def __delitem__(self, key: PythonValue) -> None:
+        pass
+
+    def __setitem__(self, key_: PythonValue, val: PythonValue) -> None:
+        pass
 
 
 class NdArray(AbstractMutVal):
@@ -49,22 +159,10 @@ class NdArray(AbstractMutVal):
                     shape = PythonValue(Tuple.top())
 
                 assert isinstance(shape.val, Tuple)
-
-                for k in shape.val.children:
-                    if isinstance(k, tuple) and k[0] == 'index':
-                        value = shape.val.children[k]
-                        if value.is_top():
-                            shape.val.children[k] = pv.Top
-                        elif not isinstance(value.val, Int):
-                            assert isinstance(value.val, AbstractValue)
-                            TypeCheckLogger().new_warning(
-                                "E017",
-                                f"TypeError: '{value.val.type_name}' object cannot"
-                                " be interpreted as an integer",
-                                pos)
-                            shape.val.children[k] = pv.int()
+                shape.val = self._check_tuple_all_ints(shape.val, pos)
 
             elif isinstance(shape, Tuple):
+                shape = self._check_tuple_all_ints(shape, pos)
                 shape = PythonValue(shape)
             else:  # shape.is_top()
                 self._im_top = True
@@ -85,6 +183,24 @@ class NdArray(AbstractMutVal):
             return
 
         self._im_top = False
+
+    def _check_tuple_all_ints(self, shape: Tuple, pos: 'Optional[Pos]') -> Tuple:
+        shape = shape.copy_mut({})
+        for k in shape.children:
+            if isinstance(k, tuple) and k[0] == 'index':
+                value = shape.children[k]
+
+                if value.is_top():
+                    shape.children[k] = PythonValue(Int.top())
+                elif not isinstance(value.val, Int):
+                    assert isinstance(value.val, AbstractValue)
+                    TypeCheckLogger().new_warning(
+                        "E017",
+                        f"TypeError: '{value.val.type_name}' object cannot"
+                        " be interpreted as an integer",
+                        pos)
+                    shape.children[k] = pv.int()
+        return shape
 
     def __repr__(self) -> str:
         if self.is_top():
@@ -446,5 +562,11 @@ numpy_module = PythonValue(BuiltinModule(
         'zeros': zeros,
         'ones': ones,
         'arange': arange,
+    }
+))
+
+check_numpy_module = PythonValue(BuiltinModule(
+    'pytropos.check.numpy', {
+        'NdArray': NdArrayAnnotation()
     }
 ))

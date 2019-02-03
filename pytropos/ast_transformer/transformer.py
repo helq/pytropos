@@ -76,7 +76,8 @@ class PytroposTransformer(ast3.NodeTransformer):
         self.cursorline = cursorline
         self.console = console
 
-    _supported_modules = {'numpy'}
+    _supported_modules = {'numpy': 'numpy_module',
+                          'pytropos.check.numpy': 'check_numpy_module'}
 
     def _show_store_contents_expr(self) -> ast3.Expr:
         """Returns an ast3.Expr which prints the value of the store in the screen. Useful
@@ -262,10 +263,44 @@ class PytroposTransformer(ast3.NodeTransformer):
         return node
 
     def visit_AnnAssign(self, node: ast3.AnnAssign) -> VisitorOutput:
+        """Transforms an assignment with annotation into a pytropos type hint assignment.
+
+        For example, it converts::
+
+            var: ann = expr
+
+        into::
+
+            `var` = pt.type_hint(`ann`, `expr`)
+        """
+        if node.value is None:
+            raise AstTransformerError(
+                f"{self.filename}:{node.lineno}:{node.col_offset}: Fatal Error: "
+                "Only annotated assignments are allowed (variables with initial values). "
+                "I.e., no full support for PEP 526 yet. Sorry :("
+            )
+
+        pos = pos_as_tuple(node)
+
         # Deleting annotation :S
-        new_node = ast3.Assign(targets=[node.target], value=node.value)
-        self.visit(new_node)
-        return new_node
+        self.generic_visit(node)
+        # new_node = ast3.Assign(targets=[node.target], value=node.value)
+        return ast3.Assign(
+            targets=[node.target],
+            value=ast3.Call(
+                func=ast3.Attribute(
+                    value=ast3.Name(id='pt', ctx=ast3.Load()),
+                    attr='annotation',
+                    ctx=ast3.Load(),
+                ),
+                args=[
+                    node.annotation,
+                    node.value,
+                    pos if pos else ast3.Expr(value=ast3.NameConstant(value=None))
+                ],
+                keywords=[],
+            ),
+        )
 
     def visit_Name(self, node: ast3.Name) -> VisitorOutput:
         """Transforms a name lookup into a dictionary lookup.
@@ -542,9 +577,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                 attr='list',
                 ctx=ast3.Load(),
             ),
-            args=[
-                node
-            ],
+            args=[node],
             keywords=[],
         )
 
@@ -609,14 +642,14 @@ class PytroposTransformer(ast3.NodeTransformer):
             if len(node.args) > 0 and i < len(node.args) - 1:
                 raise AstTransformerError(
                     f"{self.filename}:{v.lineno}:{v.col_offset}: Fatal Error: "
-                    f"Only one expression starred is allowed when calling a function"
+                    "Only one expression starred is allowed when calling a function"
                 )
 
         for val in node.keywords:
             if val.arg is None:
                 raise AstTransformerError(
                     f"{self.filename}:{v.lineno}:{v.col_offset}: Fatal Error: "
-                    f"No kargs parameters is allowed when calling a function"
+                    "No kargs parameters is allowed when calling a function"
                 )
             kwargs_keys.append(ast3.Str(s=val.arg))
             kwargs_values.append(val.value)
@@ -793,7 +826,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                 ast3.ImportFrom(
                     module='pytropos.libs_checking',
                     names=[
-                        ast3.alias(name=f'{name}_module', asname=None)
+                        ast3.alias(name=self._supported_modules[name], asname=None)
                         for [name, asname] in modules_supported
                     ],
                     level=0,
@@ -802,7 +835,7 @@ class PytroposTransformer(ast3.NodeTransformer):
             libs.extend(
                 ast3.parse(  # type: ignore
                     '\n'.join([
-                        f"st['{asname}'] = {name}_module"
+                        f"st['{asname}'] = {self._supported_modules[name]}"
                         for name, asname in modules_supported
                     ])
                 ).body
@@ -842,13 +875,10 @@ class PytroposTransformer(ast3.NodeTransformer):
             st.importStar()
             """
 
-        # ºnon_supported_modules: 'List[str]' = []
-        # ºmodules_supported:     'List[Tuple[str, Optional[str]]]' = []
-
         libs: 'List[ast3.AST]' = []
 
         if node.module in self._supported_modules:
-            module_name = f'{node.module}_module'
+            module_name = self._supported_modules[node.module]
             # from pytropos.libs_checking import module_name
             libs.append(
                 ast3.ImportFrom(

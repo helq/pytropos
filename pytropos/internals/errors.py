@@ -56,6 +56,8 @@ WarningType = str
 # W212: Trying to delete already deleted local variable
 # W213: Trying to delete already deleted non-local variable
 
+# W301: Incompatible types in assignment (expression has type ---, variable has type ---)
+
 # W501: (numpy) TypeError: '----' object cannot be interpreted as an integer
 # W502: (numpy) ValueError: operands could not be broadcast together with shapes --- ---
 

@@ -356,6 +356,44 @@ class PythonValue(AbstractDomain):
         # More info: https://docs.python.org/3/reference/datamodel.html#object.__bool__
         return PythonValue(Bool.top())
 
+    def type(self) -> str:
+        """Returns the type of the value hold self.val"""
+        if self.val is PT.Top:
+            return "Top"
+        elif self.val is PT.InConstruction:
+            return "InConstruction"
+        else:  # self.type is PT.Top
+            assert not isinstance(self.val, PT)
+            return str(self.val.type_name)
+
+    def __lt__(self, other: 'PythonValue') -> '__builtins__.bool':
+        if self.is_top():
+            return False
+        elif other.is_top():
+            return True
+
+        assert isinstance(self.val, AbstractValue)
+        assert isinstance(other.val, AbstractValue)
+
+        if type(self.val) is not type(other.val):  # noqa: E721
+            return False
+
+        try:
+            return bool(self.val < other.val)  # type: ignore
+        except TypeError:
+            # TODO(helq): Add warning saying that comparing this two elements is not fully
+            # supported and may be very slow
+            pass
+
+        # Two know if a value in a Lattice is bigger than the other one can do:
+        # join(self, other) == other
+        if isinstance(self.val, AbstractMutVal):
+            joining = self.val.join_mut(other.val, {})
+        else:
+            joining = self.val.join(other.val)
+
+        return bool(joining == other.val)
+
 
 class AbstractMutVal(AbstractValue):
     """An AbstractValue that allows mutability"""

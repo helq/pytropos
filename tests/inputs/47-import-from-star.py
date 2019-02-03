@@ -1,3 +1,3 @@
 from somelib import *
 
-c = a + b
+c: t = a + b
