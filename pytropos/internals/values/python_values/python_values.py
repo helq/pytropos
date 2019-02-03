@@ -266,7 +266,7 @@ class PythonValue(AbstractDomain):
         # Checking if name is add, mul, truediv
         if name in ops_symbols.keys():
             return partial(self.operate, name)
-        raise AttributeError(f"There is no operation for PythonValues called '{name}'")
+        raise AttributeError(f"PythonValue has no attribute called '{name}'")
 
     @staticmethod
     def __op_in_abstractvalue_overwritten(method: Any) -> 'bool':
@@ -549,7 +549,15 @@ class AttrsContainer(ABC):
 
 class AttrsMutContainer(AttrsContainer):
     """This class acts as a Dict[str, PythonValue] but it's defined to access and modify
-    AbstractMutVals"""
+    AbstractMutVals
+
+    Attributes:
+
+    - type_name: The name of the object from which the attributes are being taken
+    - children: Dictionary with all the references to other PythonValues
+    - non_mut_attrs: Dictionary with all python references that are created on the spot,
+                     i.e., Not Methods!
+    - read_only: Signals whether the attributes of the AbstractMutVal are writable"""
     def __init__(
             self,
             type_name: str,

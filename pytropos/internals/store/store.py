@@ -2,6 +2,7 @@ from typing import Tuple, Union, Iterable
 from typing import Optional, Dict  # noqa: F401
 
 from ..values.python_values import PythonValue
+from ..values.python_values.wrappers import BuiltinModule
 from ..errors import TypeCheckLogger
 from ..abstract_domain import AbstractDomain
 
@@ -35,10 +36,12 @@ class Store(AbstractDomain):
                 self._im_top = False
                 self._global_scope = {}  # type: Dict[str, PythonValue]
                 self._builtin_values = {}  # type: Dict[str, PythonValue]
+                self._starred = False
         else:
             self._im_top = False
             self._global_scope = store._global_scope.copy()
             self._builtin_values = store._builtin_values.copy()
+            self._starred = store._starred
 
     __top_value = None  # type: Store
 
@@ -86,11 +89,12 @@ class Store(AbstractDomain):
         elif key in self._builtin_values:
             return self._builtin_values[key]
 
-        TypeCheckLogger().new_warning(
-            "W201",
-            "Global variable `{}` isn't set".format(key),
-            src_pos
-        )
+        if not self._starred:
+            TypeCheckLogger().new_warning(
+                "W201",
+                "Global variable `{}` isn't set".format(key),
+                src_pos
+            )
 
         toret = self._global_scope[key] = PythonValue.top()
         return toret
@@ -113,7 +117,7 @@ class Store(AbstractDomain):
 
         if key in self._global_scope:
             del self._global_scope[key]
-        else:
+        elif not self._starred:
             TypeCheckLogger().new_warning(
                 "W201",
                 "Global variable `{}` isn't set".format(key),
@@ -207,3 +211,20 @@ class Store(AbstractDomain):
                         fix_point = False
 
         return new_store, fix_point
+
+    def importStar(self, val: 'Optional[PythonValue]' = None) -> None:
+        """Import all variables exported by a module (if the module is supported)
+        otherwise makes every non-set variable Top"""
+        if val is None:
+            self._starred = True
+            return
+
+        module = val.val
+        assert isinstance(module, BuiltinModule)
+        if module.is_top():
+            self._starred = True
+            return
+
+        for key, val in module.children.items():
+            if isinstance(key, tuple) and key[0] == 'attr':
+                self[key[1]] = val

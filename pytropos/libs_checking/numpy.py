@@ -19,6 +19,9 @@ from ..internals.errors import TypeCheckLogger
 from ..internals.miscelaneous import Pos
 
 
+__all__ = ['NdArray', 'ndarray', 'array', 'zeros', 'ones', 'arange', 'numpy_module']
+
+
 extract_op = re.compile(r'op_([a-zA-Z]*)(_([a-zA-Z]*))?$')
 
 
@@ -82,14 +85,10 @@ class NdArray(AbstractMutVal):
             return
 
         self._im_top = False
-        self.non_mut_attrs = {
-            'shape': self._attr_shape,
-            'ndim': self._attr_ndim,
-        }
 
     def __repr__(self) -> str:
         if self.is_top():
-            return "NdArray()"
+            return "NdArray()?"
         return f"NdArray({self.children['shape']})"
 
     def __eq__(self, other: Any) -> 'bool':
@@ -138,9 +137,20 @@ class NdArray(AbstractMutVal):
         return "numpy.ndarray"
 
     def get_attrs(self) -> 'AttrsContainer':
-        if self.is_top():
-            return AttrsTopContainer()
-        return AttrsMutContainer('ndarray', self.children, self.non_mut_attrs, read_only=True)
+        if not hasattr(self, '_attrs'):
+            if self.is_top():
+                self._attrs = AttrsTopContainer()  # type: AttrsContainer
+            else:
+                self._attrs = AttrsMutContainer(
+                    'ndarray',
+                    self.children,
+                    {
+                        'shape': self._attr_shape,
+                        'ndim': self._attr_ndim,
+                    },
+                    read_only=True
+                )
+        return self._attrs
 
     @property
     def shape(self) -> 'Tuple':
@@ -157,9 +167,9 @@ class NdArray(AbstractMutVal):
         # Checking if name is 'op_OP' (eg, 'op_add')
         op = extract_op.match(name)
         if op and op[1] in NdArray._supported_ops:  # accepting op_add and op_add_TYPE
-            if op[3] is None:
+            if op[3] is None:  # ex: op_add
                 return object.__getattribute__(self, 'op_OP')
-            else:
+            else:  # ex: op_add_Int
                 return object.__getattribute__(self, 'op_OP_Any')
 
         return object.__getattribute__(self, name)
@@ -192,7 +202,6 @@ class NdArray(AbstractMutVal):
 
     def _attr_shape(self) -> 'PythonValue':
         assert isinstance(self.children['shape'].val, Tuple)
-        # This is safe because shape should be a tuple with only integer values
         return self.children['shape'].copy_mut({})
 
     def _attr_ndim(self) -> 'PythonValue':
@@ -215,10 +224,6 @@ class NdArray(AbstractMutVal):
     #         assert isinstance(other_array.val, NdArray)
     #         # COMPLETE_ME ...  # CHECKING HERE!!! COMPLETE ME!!!
     #     return PythonValue(new_array)
-
-
-def _function_zero(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
-    return PythonValue(NdArray(val, pos))
 
 
 def __dims_from_Tuple(tpl: Tuple, size: int) -> 'List_[Int]':
@@ -390,6 +395,10 @@ def array_from_AbstractValue(absval: AbstractValue, pos: Optional[Pos]) -> 'Opti
     return NdArray(shape, pos)
 
 
+def _function_zeros(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
+    return PythonValue(NdArray(val, pos))
+
+
 def _function_array(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
     """Takes any PythonValue and tries to convert it into a wrapped NdArray.
 
@@ -421,13 +430,13 @@ array = BuiltinFun(
     'array', _function_array, args=[AbstractValue],
 )
 zeros = BuiltinFun(
-    'zeros', _function_zero, args=[(Tuple, Int, List)],
+    'zeros', _function_zeros, args=[(Tuple, Int, List)],
 )
 ones = BuiltinFun(
-    'ones', _function_zero, args=[(Tuple, Int, List)],
+    'ones', _function_zeros, args=[(Tuple, Int, List)],
 )
 arange = BuiltinFun(
-    'arange', _function_zero, args=[Int],
+    'arange', _function_zeros, args=[Int],
 )
 
 numpy_module = PythonValue(BuiltinModule(

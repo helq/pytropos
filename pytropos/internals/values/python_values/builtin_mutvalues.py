@@ -178,6 +178,8 @@ class List(TupleOrList):
                     args=[AbstractValue]
                 ))
 
+        self.__attrs = None  # type: Optional[AttrsContainer]
+
     def __repr__(self) -> 'str':
         if self.is_top():
             return 'List(None)'
@@ -206,9 +208,12 @@ class List(TupleOrList):
         return "list"
 
     def get_attrs(self) -> 'AttrsContainer':
-        if self.is_top():
-            return AttrsTopContainer()
-        return AttrsMutContainer('list', self.children, read_only=True)
+        if self.__attrs is None:
+            if self.is_top():
+                self.__attrs = AttrsTopContainer()
+            else:
+                self.__attrs = AttrsMutContainer('list', self.children, read_only=True)
+        return self.__attrs
 
     def get_subscripts(self, pos: 'Optional[Pos]') -> SubscriptsContainer:
         if self.is_top():

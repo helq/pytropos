@@ -8,7 +8,8 @@ from pytropos.libs_checking.numpy import *
 exitcode = 0
 
 store = {
-  'np': numpy_module,
+  'array': PythonValue(array),
+  'zeros': PythonValue(zeros),
   'x': PythonValue(NdArray(pv.tuple(pv.int(3)))),
   'y': PythonValue(NdArray(pv.tuple(pv.int(2), pv.int(3), pv.int(4)))),
   'xn': pv.int(1),

@@ -48,7 +48,7 @@ no_need_to_transform = set(operations).union(compopt).union([  # type: ignore
 ])
 
 
-def pos_as_tuple(node: ast3.expr) -> Optional[ast3.Tuple]:
+def pos_as_tuple(node: Union[ast3.expr, ast3.stmt]) -> Optional[ast3.Tuple]:
     if not hasattr(node, 'lineno'):
         return None
 
@@ -75,6 +75,8 @@ class PytroposTransformer(ast3.NodeTransformer):
         self.scope_level = 0
         self.cursorline = cursorline
         self.console = console
+
+    _supported_modules = {'numpy'}
 
     def _show_store_contents_expr(self) -> ast3.Expr:
         """Returns an ast3.Expr which prints the value of the store in the screen. Useful
@@ -266,7 +268,16 @@ class PytroposTransformer(ast3.NodeTransformer):
         return new_node
 
     def visit_Name(self, node: ast3.Name) -> VisitorOutput:
-        "Transforms a name lookup into a dictionary lookup. E.g. `var` > `st[('var', ...)]`"
+        """Transforms a name lookup into a dictionary lookup.
+
+        For example, it converts::
+
+            var
+
+        into::
+
+            st[('var', ...)]
+        """
 
         pos = pos_as_tuple(node)
         if pos is not None:
@@ -744,12 +755,31 @@ class PytroposTransformer(ast3.NodeTransformer):
         return node
 
     def visit_Import(self, node: ast3.Import) -> VisitorOutput:
+        """Defines how to import modules (supported and nonsupported)
+
+        For example, it converts::
+
+            import numpy
+            import numpy as np
+            import somelib, otherlib as other
+
+        into::
+
+            from pytropos.libs_checking import numpy_module
+            st['numpy'] = numpy_module
+
+            from pytropos.libs_checking import numpy_module
+            st['np'] = numpy_module
+
+            st['somelib'] = pt.ModuleTop
+            st['other'] = pt.ModuleTop
+        """
 
         # Checking if the library being loaded is supported by pytropos
         non_supported_modules: 'List[str]' = []
         modules_supported:     'List[Tuple[str, Optional[str]]]' = []
         for alias in node.names:
-            if alias.name in {'numpy'}:
+            if alias.name in self._supported_modules:
                 modules_supported.append( (alias.name, alias.asname) )  # noqa: E201,E202
             else:
                 non_supported_modules.append(
@@ -757,7 +787,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                 )
 
         # Loading fake modules from pytropos (if supported)
-        libs: List[ast3.AST] = []
+        libs: 'List[ast3.AST]' = []
         if len(modules_supported) > 0:
             libs.append(
                 ast3.ImportFrom(
@@ -779,15 +809,140 @@ class PytroposTransformer(ast3.NodeTransformer):
             )
 
         # Loading modules as Any (if not supported)
-        if len(non_supported_modules) > 0:
+        if non_supported_modules:
             libs.extend(
                 ast3.parse(  # type: ignore
                     '\n'.join([f"st['{name}'] = pt.ModuleTop" for name in non_supported_modules])
                 ).body
             )
 
-        # if the lib hasn't been recognized in the supported libraries, it is deleted
-        if len(libs) == 0:
-            return None
+        return libs
+
+    def visit_ImportFrom(self, node: ast3.ImportFrom) -> VisitorOutput:
+        """Defines how to import (from) modules (supported and nonsupported)
+
+        For example, it converts::
+
+            from numpy import array
+            from numpy import *
+            from somelib import var, othervar as var2
+            from otherlib import *
+
+        into::
+
+            from pytropos.libs_checking import numpy_module
+            st['array'] = numpy_module.attr['array', pos...]
+
+            from pytropos.libs_checking import numpy_module
+            st.importStar(numpy_module)
+
+            st['var'] = pt.Top
+            st['var2'] = pt.Top
+
+            st.importStar()
+            """
+
+        # ºnon_supported_modules: 'List[str]' = []
+        # ºmodules_supported:     'List[Tuple[str, Optional[str]]]' = []
+
+        libs: 'List[ast3.AST]' = []
+
+        if node.module in self._supported_modules:
+            module_name = f'{node.module}_module'
+            # from pytropos.libs_checking import module_name
+            libs.append(
+                ast3.ImportFrom(
+                    module='pytropos.libs_checking',
+                    names=[
+                        ast3.alias(name=module_name, asname=None)
+                    ],
+                    level=0,
+                )
+            )
+            if node.names[0].name == '*':
+                # st.importStar(module_name)
+                libs.append(
+                    ast3.Expr(
+                        value=ast3.Call(
+                            func=ast3.Attribute(
+                                value=ast3.Name(id='st', ctx=ast3.Load()),
+                                attr='importStar',
+                                ctx=ast3.Load(),
+                            ),
+                            args=[ast3.Name(id=module_name, ctx=ast3.Load())],
+                            keywords=[],
+                        ),
+                    )
+                )
+            else:
+                for alias in node.names:
+                    # st['asname'] = modname.attr['name']
+
+                    pos = pos_as_tuple(node)
+
+                    if pos is not None:
+                        attrname = ast3.Tuple(
+                            elts=[
+                                ast3.Str(s=alias.name),
+                                pos
+                            ],
+                            ctx=ast3.Load()
+                        )  # type: ast3.expr
+                    else:
+                        attrname = ast3.Str(s=alias.name)
+
+                    libs.append(
+                        ast3.Assign(
+                            targets=[
+                                ast3.Subscript(
+                                    value=ast3.Name(id='st', ctx=ast3.Load()),
+                                    slice=ast3.Index(
+                                        value=ast3.Str(
+                                            s=alias.asname if alias.asname else alias.name
+                                        ),
+                                    ),
+                                    ctx=ast3.Store(),
+                                ),
+                            ],
+                            value=ast3.Subscript(
+                                value=ast3.Attribute(
+                                    value=ast3.Name(id=module_name, ctx=ast3.Load()),
+                                    attr='attr',
+                                    ctx=ast3.Load(),
+                                ),
+                                slice=ast3.Index(
+                                    value=attrname,
+                                ),
+                                ctx=ast3.Load(),
+                            ),
+                        )
+                    )
+        else:
+            if node.names[0].name == '*':
+                # st.importStar()
+                libs.append(
+                    ast3.Expr(
+                        value=ast3.Call(
+                            func=ast3.Attribute(
+                                value=ast3.Name(id='st', ctx=ast3.Load()),
+                                attr='importStar',
+                                ctx=ast3.Load(),
+                            ),
+                            args=[],
+                            keywords=[],
+                        ),
+                    )
+                )
+            else:
+                libs.extend(
+                    ast3.parse(  # type: ignore
+                        '\n'.join([
+                            "st['{asname}'] = pt.Top".format(
+                                asname=alias.asname if alias.asname else alias.name
+                            )
+                            for alias in node.names
+                        ])
+                    ).body
+                )
 
         return libs
