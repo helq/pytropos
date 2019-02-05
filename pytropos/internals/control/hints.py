@@ -26,7 +26,7 @@ def annotation(ann: PythonValue, expr: PythonValue, pos: 'Optional[Pos]') -> Pyt
 
     TypeCheckLogger().new_warning(
         "W301",
-        f"not ({type_} < {expr}). Incompatible types in assignment "
+        f"Type {type_} is NOT more specific than type {expr}. Incompatible types in assignment "
         f"(expression has type {expr}, variable has type {type_})",
         pos)
 

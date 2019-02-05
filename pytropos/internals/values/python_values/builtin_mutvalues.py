@@ -158,6 +158,15 @@ class TupleOrList(AbstractMutVal):
             if isinstance(i, tuple) and i[0] == 'index'
         ])
 
+    def sorted_indices_ints(self) -> 'List_[Int]':
+        assert self.is_size_determined()
+        lst = [Int.top()]*self.size[0]
+        for i, v in self.children.items():
+            if isinstance(i, tuple) and i[0] == 'index':
+                assert isinstance(v.val, Int)
+                lst[i[1]] = v.val
+        return lst
+
 
 class List(TupleOrList):
     __top = None  # type: List

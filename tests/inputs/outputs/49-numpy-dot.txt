@@ -1,0 +1,4 @@
+tests/inputs/49-numpy-dot.py:9:4: W503 ValueError: shapes (10,) and (5,) not aligned: 10 (dim 0) != 5 (dim 0)
+tests/inputs/49-numpy-dot.py:18:4: W503 ValueError: shapes (2, 3) and (1, 2) not aligned: 3 (dim 1) != 1 (dim 0)
+tests/inputs/49-numpy-dot.py:26:4: W503 ValueError: shapes (2, 3, 1, 6) and (5,) not aligned: 6 (dim 3) != 5 (dim 0)
+tests/inputs/49-numpy-dot.py:30:4: W503 ValueError: shapes (3, 5, 6, 5) and (7, 2) not aligned: 5 (dim 3) != 7 (dim 0)

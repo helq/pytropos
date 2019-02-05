@@ -60,6 +60,7 @@ WarningType = str
 
 # W501: (numpy) TypeError: '----' object cannot be interpreted as an integer
 # W502: (numpy) ValueError: operands could not be broadcast together with shapes --- ---
+# W503: (numpy) ValueError: shapes ----- and ---- not aligned: -- (dim -) != - (dim -)
 
 
 class TypeCheckLogger(object, metaclass=Singleton):

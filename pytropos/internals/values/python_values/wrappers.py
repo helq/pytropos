@@ -12,7 +12,9 @@ from ...errors import TypeCheckLogger
 
 from ...miscelaneous import Pos
 
-__main__ = ['BuiltinFun']
+__all__ = [
+    'BuiltinFun', 'BuiltinClass', 'BuiltinType', 'BuiltinModule', 'check_fun_args_kargs'
+]
 
 
 # A BuiltinFun or BuiltinClass accepts args of type (eg, (Int, Tuple)) and single values
@@ -132,6 +134,7 @@ class BuiltinFun(AbstractMutVal):
 
         if fun is not None:
             assert name is not None
+            assert children is None
             self.name = name
             self.fun = fun
             self.args = [] if args is None else args

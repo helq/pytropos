@@ -100,7 +100,6 @@ class PythonValue(AbstractDomain):
         if self.is_top():
             return self
 
-        # print(f"Copying object with mut_id: {self.mut_id}")
         if self.mut_id in mut_heap:
             return mut_heap[self.mut_id]
         else:
@@ -388,7 +387,7 @@ class PythonValue(AbstractDomain):
         # Two know if a value in a Lattice is bigger than the other one can do:
         # join(self, other) == other
         if isinstance(self.val, AbstractMutVal):
-            joining = self.val.join_mut(other.val, {})
+            joining = self.join_mut(other, {}).val
         else:
             joining = self.val.join(other.val)
 
@@ -501,6 +500,10 @@ class AbstractMutVal(AbstractValue):
                  ) -> 'Any':
         """Joins both values including their children"""
         assert not self.is_top() and not other.is_top()
+        assert len(mut_heap) > 0 \
+            and ('left', self.mut_id) in mut_heap \
+            and ('right', other.mut_id) in mut_heap, \
+            "join_mut cannot be called with an empty mut_heap!"
 
         left_children = self.children
         right_children = other.children

@@ -13,10 +13,10 @@ def to_pv_Tuple(*ints):
 store = {
   'np': numpy_module,
   'a': to_pv_Tuple(2, 3, 4),
-  'b': pv.Top,
+  'b': PythonValue(Tuple.top()),
   'c': to_pv_Tuple(2, 2, 4),
   'd': to_pv_Tuple(7, 1, 8),
-  'e': pv.Top,
+  'e': PythonValue(Tuple.top()),
   'f': to_pv_Tuple(5, 3, 1),
 
    # This shouldn't exists, with more precise NdArrays should be possible to dectect that

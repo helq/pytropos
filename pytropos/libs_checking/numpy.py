@@ -4,7 +4,7 @@ from typing import Dict, Optional, Any, Tuple as Tuple_, Union
 from typing import List as List_  # noqa: F401
 
 from ..internals.values.python_values.python_values import (
-    AbstractMutVal, PythonValue, AttrsContainer, AttrsMutContainer,
+    AbstractMutVal, PT, PythonValue, AttrsContainer, AttrsMutContainer,
     AttrsTopContainer, SubscriptsContainer
 )
 from ..internals.values.abstract_value import AbstractValue
@@ -144,6 +144,7 @@ class NdArray(AbstractMutVal):
     ) -> None:
         super().__init__(children=children)
         if shape is not None:
+            assert children is None
             if isinstance(shape, PythonValue) and not shape.is_top():
                 # We have warrantied from BuiltinClass that this shape.val is either:
                 # - Tuple
@@ -170,13 +171,13 @@ class NdArray(AbstractMutVal):
 
             self.children['shape'] = shape
 
-            # self.children[('attr', 'dot')] = \
-            #     PythonValue(BuiltinFun(
-            #         'dot',
-            #         NdArray._method_dot,
-            #         self,
-            #         args=[AbstractValue]
-            #     ))
+            self.children[('attr', 'dot')] = \
+                PythonValue(BuiltinFun(
+                    'dot',
+                    NdArray._method_dot,
+                    self,
+                    args=[AbstractValue]
+                ))
 
         elif children is None:  # shape is None and children is None
             self._im_top = True
@@ -238,8 +239,8 @@ class NdArray(AbstractMutVal):
                  ) -> 'NdArray':
         assert type(self) is type(other)
         new = super().join_mut(other, mut_heap)
-        if self.is_top() or other.is_top():
-            return self.top()
+        # if self.is_top() or other.is_top():
+        #     return self.top()
         return new  # type: ignore
 
     @property
@@ -254,18 +255,15 @@ class NdArray(AbstractMutVal):
 
     def get_attrs(self) -> 'AttrsContainer':
         if not hasattr(self, '_attrs'):
-            if self.is_top():
-                self._attrs = AttrsTopContainer()  # type: AttrsContainer
-            else:
-                self._attrs = AttrsMutContainer(
-                    'ndarray',
-                    self.children,
-                    {
-                        'shape': self._attr_shape,
-                        'ndim': self._attr_ndim,
-                    },
-                    read_only=True
-                )
+            self._attrs = AttrsMutContainer(
+                'ndarray',
+                self.children,
+                {
+                    'shape': self._attr_shape,
+                    'ndim': self._attr_ndim,
+                },
+                read_only=True
+            )
         return self._attrs
 
     @property
@@ -317,10 +315,16 @@ class NdArray(AbstractMutVal):
             return NdArray(new_shape)
 
     def _attr_shape(self) -> 'PythonValue':
+        if self.is_top():
+            return PythonValue(Tuple.top())
+
         assert isinstance(self.children['shape'].val, Tuple)
         return self.children['shape'].copy_mut({})
 
     def _attr_ndim(self) -> 'PythonValue':
+        if self.is_top():
+            return PythonValue(Int.top())
+
         shape = self.children['shape'].val
         assert isinstance(shape, Tuple)
 
@@ -329,17 +333,124 @@ class NdArray(AbstractMutVal):
         else:
             return PythonValue(Int.top())
 
-    # def _method_dot(self, other: 'PythonValue', pos: Optional[Pos]) -> 'PythonValue':
-    #     if self.is_top() or other.is_top():
-    #         return PythonValue.top()
+    def _method_dot(self, other: 'PythonValue', pos: Optional[Pos]) -> 'PythonValue':  # noqa: C901
+        """Checking done with the same rules defined in numpy documentation.
 
-    #     other_array = _function_array(other, pos)
-    #     if other_array.is_top():
-    #         new_array = self.top()
-    #     else:
-    #         assert isinstance(other_array.val, NdArray)
-    #         # COMPLETE_ME ...  # CHECKING HERE!!! COMPLETE ME!!!
-    #     return PythonValue(new_array)
+        doc url: https://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html"""
+        if self.is_top() or other.is_top():
+            return PythonValue.top()
+
+        other_array = _function_array(other, pos)
+        if other_array.is_top():
+            new_array = self.top()
+        else:
+            assert isinstance(other_array.val, NdArray)
+            self_shape = self.shape
+            other_shape = other_array.val.shape
+            if not self_shape.is_size_determined() or not other_shape.is_size_determined():
+                new_array = self.top()
+            else:
+                self_size = self_shape.size[0]
+                other_size = other_shape.size[0]
+
+                # Both arrays are 1-D
+                if self_size == 1 and other_size == 1:
+                    self_indices = self_shape.sorted_indices_ints()
+                    other_indices = other_shape.sorted_indices_ints()
+                    s_index0 = self_indices[0]
+                    o_index0 = other_indices[0]
+
+                    if s_index0.is_top() or o_index0.is_top():
+                        new_array = self.top()
+                    elif s_index0 == o_index0:
+                        new_array = NdArray(Tuple([]))
+                    else:
+                        new_array = self.top()
+                        TypeCheckLogger().new_warning(
+                            "W503",
+                            f"ValueError: shapes {self_shape.abstract_repr} "
+                            f"and {other_shape.abstract_repr} not aligned: "
+                            f"{s_index0.abstract_repr} (dim 0)"
+                            f" != {o_index0.abstract_repr} (dim 0)",
+                            pos
+                        )
+
+                # Both arrays are 2-D
+                elif self_size == other_size == 2:
+                    self_indices = self_shape.sorted_indices_ints()
+                    other_indices = other_shape.sorted_indices_ints()
+                    s_index1 = self_indices[1]
+                    o_index0 = other_indices[0]
+                    if s_index1.is_top() or o_index0.is_top():
+                        new_array = self.top()
+                    elif s_index1 == o_index0:
+                        new_array = NdArray(Tuple([PythonValue(self_indices[0]),
+                                                   PythonValue(other_indices[1])]))
+                    else:
+                        new_array = self.top()
+                        TypeCheckLogger().new_warning(
+                            "W503",
+                            f"ValueError: shapes {self_shape.abstract_repr} "
+                            f"and {other_shape.abstract_repr} not aligned: "
+                            f"{s_index1.abstract_repr} (dim 1)"
+                            f" != {o_index0.abstract_repr} (dim 0)",
+                            pos
+                        )
+
+                # Either array is 0-D
+                elif self_size == 0:
+                    new_array = NdArray(other_shape)
+                elif other_size == 0:
+                    new_array = NdArray(self_shape)
+
+                # Other array is 1-D
+                elif other_size == 1:
+                    self_indices = self_shape.sorted_indices_ints()
+                    other_indices = other_shape.sorted_indices_ints()
+                    s_index_last = self_indices[-1]
+                    o_index0 = other_indices[0]
+
+                    if s_index_last.is_top() or o_index0.is_top():
+                        new_array = self.top()
+                    elif s_index_last == o_index0:
+                        new_array = NdArray(Tuple([PythonValue(idx) for idx in self_indices[:-1]]))
+                    else:
+                        new_array = self.top()
+                        TypeCheckLogger().new_warning(
+                            "W503",
+                            f"ValueError: shapes {self_shape.abstract_repr} "
+                            f"and {other_shape.abstract_repr} not aligned: "
+                            f"{s_index_last.abstract_repr} (dim {self_size-1})"
+                            f" != {o_index0.abstract_repr} (dim 0)",
+                            pos
+                        )
+
+                # Both arrays are arbritrary dimentioned matrices
+                else:
+                    self_indices = self_shape.sorted_indices_ints()
+                    other_indices = other_shape.sorted_indices_ints()
+                    s_index_last = self_indices[-1]
+                    o_index_2d_last = other_indices[-2]
+
+                    if s_index_last.is_top() or o_index_2d_last.is_top():
+                        new_array = self.top()
+                    elif s_index_last == o_index_2d_last:
+                        new_indices = self_indices[:-1]
+                        new_indices.extend(other_indices[:-2])
+                        new_indices.append(other_indices[-1])
+
+                        new_array = NdArray(Tuple([PythonValue(idx) for idx in new_indices]))
+                    else:
+                        new_array = self.top()
+                        TypeCheckLogger().new_warning(
+                            "W503",
+                            f"ValueError: shapes {self_shape.abstract_repr} "
+                            f"and {other_shape.abstract_repr} not aligned: "
+                            f"{s_index_last.abstract_repr} (dim {self_size-1})"
+                            f" != {o_index_2d_last.abstract_repr} (dim {other_size-2})",
+                            pos
+                        )
+        return PythonValue(new_array)
 
 
 def __dims_from_Tuple(tpl: Tuple, size: int) -> 'List_[Int]':
@@ -439,7 +550,14 @@ def getshape_list(lst: Union[List, Tuple]) -> 'Tuple':  # noqa: C901
         shape_val = shape_values[0]
         for shape_val_other in shape_values[1:]:
             if shape_val != shape_val_other:
-                shape_val = shape_val.join_mut(shape_val_other, {})  # type: ignore
+                assert isinstance(shape_val, Tuple)
+                pv = PythonValue(PT.InConstruction)
+                sh_id, sh_ot_id = shape_val.mut_id, shape_val_other.mut_id
+                mut_heap = {
+                    ('left',     sh_id): (sh_id, sh_ot_id, pv),
+                    ('right', sh_ot_id): (sh_id, sh_ot_id, pv)
+                }
+                shape_val = shape_val.join_mut(shape_val_other, mut_heap)
 
             any_dim_eq = False
             for i, val in shape_val.sorted_indices():  # type: ignore
