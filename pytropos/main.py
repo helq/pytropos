@@ -158,11 +158,11 @@ def run_pytropos(  # noqa: C901
             cursorline=cursorline,
             console=console
         ).visit(ast_)
-    except AstTransformerError as msg:
+    except AstTransformerError:
         derror("Sorry it seems Pytropos cannot run the file. Pytropos doesn't support "
                "some Python characteristic it uses right now. Sorry :(")
-        # traceback.print_exc()
-        derror(msg)
+        traceback.print_exc()
+        # derror(msg)
         return (2, None)
 
     if debug_print.verbosity > 1:
@@ -171,10 +171,19 @@ def run_pytropos(  # noqa: C901
         dprint(unparse(newast), verb=2)
 
     newast_py = ast.fix_missing_locations(typed_ast3_to_ast(newast))
+
     # TODO(helq): add these lines of code for optional debugging
     # import astpretty
     # astpretty.pprint(newast_py)
-    newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
+    try:
+        newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
+    except (ValueError, TypeError):
+        derror("PYTROPOS INTERNAL ERROR. Sorry, it seems something unexpected happened. "
+               "Please report this issue: run pytropos again with the same input and "
+               "the flag -vvv")
+        traceback.print_exc()
+        # derror(msg)
+        return (2, None)
 
     exitvalues = run_transformed_type_checking_code(newast_comp, pt_globals)
     TypeCheckLogger.clean_sing()
