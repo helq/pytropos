@@ -8,7 +8,7 @@ n = 0 + 2
 if m > 5:
     n = 1
 else:
-    m = 6
+    m = 4
 
 b = np.ones( (m,n) )
 res = np.dot(a, b)  # fails here
@@ -22,3 +22,5 @@ if var:
     res = b.dot(a)  # fails here
 
 print(res)
+
+# show_store()

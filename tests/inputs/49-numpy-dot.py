@@ -32,6 +32,9 @@ n = zeros((3,5,6,5)).dot(zeros((5,2)))    # resulting shape should be (3, 5, 6, 
 o = zeros((5,)).dot(zeros((6,5,2)))       # resulting shape should be (6, 2)
 p = zeros((5,1,3)).dot(zeros((7,6,3,2)))  # resulting shape should be (5, 1, 7, 6, 2)
 
+q: NdArray[1,int,5] = Top
+q = zeros((8,1,6)).dot(q)
+
 # show_store(k.shape)
 
 # show_store()

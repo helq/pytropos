@@ -1,14 +1,15 @@
 import math
 import re
+from inspect import signature
 from typing import Dict, Optional, Any, Tuple as Tuple_, Union
-from typing import List as List_  # noqa: F401
+from typing import List as List_, Callable  # noqa: F401
 
 from ..internals.values.python_values.python_values import (
     AbstractMutVal, PT, PythonValue, AttrsContainer, AttrsMutContainer,
     AttrsTopContainer, SubscriptsContainer
 )
 from ..internals.values.abstract_value import AbstractValue
-from ..internals.values.builtin_values import Int
+from ..internals.values.builtin_values import Int, Float
 import pytropos.internals.values as pv
 from ..internals.values.python_values.builtin_mutvalues import Tuple, List
 from ..internals.values.python_values.wrappers import (
@@ -119,7 +120,7 @@ class SubscriptsNdArrayAnnContainer(SubscriptsContainer):
             if isinstance(key.val, Int):
                 return PythonValue(NdArrayAnnotation(NdArray(key)))
         elif isinstance(absval, Tuple):
-            shape = absval.copy_mut({})
+            shape = absval.copy_mut({absval.mut_id: PythonValue(PT.InConstruction)})
             for k, v in shape.children.items():
                 if isinstance(v.val, BuiltinType):
                     shape.children[k] = v.val.get_absvalue()
@@ -165,19 +166,26 @@ class NdArray(AbstractMutVal):
             elif isinstance(shape, Tuple):
                 shape = self._check_tuple_all_ints(shape, pos)
                 shape = PythonValue(shape)
+
             else:  # shape.is_top()
                 self._im_top = True
                 return
 
-            self.children['shape'] = shape
-
-            self.children[('attr', 'dot')] = \
-                PythonValue(BuiltinFun(
+            self.children = {
+                'shape': shape,
+                ('attr', 'dot'): PythonValue(BuiltinFun(
                     'dot',
                     NdArray._method_dot,
                     self,
                     args=[AbstractValue]
-                ))
+                )),
+                ('attr', 'astype'): PythonValue(BuiltinFun(
+                    'astype',
+                    NdArray._method_astype,
+                    self,
+                    args=[AbstractValue]
+                )),
+            }
 
         elif children is None:  # shape is None and children is None
             self._im_top = True
@@ -186,7 +194,7 @@ class NdArray(AbstractMutVal):
         self._im_top = False
 
     def _check_tuple_all_ints(self, shape: Tuple, pos: 'Optional[Pos]') -> Tuple:
-        shape = shape.copy_mut({})
+        shape = shape.copy_mut({shape.mut_id: PythonValue(PT.InConstruction)})
         for k in shape.children:
             if isinstance(k, tuple) and k[0] == 'index':
                 value = shape.children[k]
@@ -261,6 +269,10 @@ class NdArray(AbstractMutVal):
                 {
                     'shape': self._attr_shape,
                     'ndim': self._attr_ndim,
+                    'size': self._attr_size,
+                    # TODO(helq): define dtype as part of a numpy array and modify this method
+                    'dtype': self._attr_pv_top,
+                    'T': self._attr_T,
                 },
                 read_only=True
             )
@@ -332,6 +344,37 @@ class NdArray(AbstractMutVal):
             return PythonValue(Int(shape.size[0]))
         else:
             return PythonValue(Int.top())
+
+    def _attr_size(self) -> 'PythonValue':
+        if self.is_top():
+            return PythonValue(Int.top())
+
+        shape = self.children['shape'].val
+        assert isinstance(shape, Tuple)
+
+        if shape.is_size_determined():
+            indices = shape.sorted_indices_ints()
+            result = Int(1)
+            for i in indices:
+                result = result.op_mul(i, None)
+            return PythonValue(result)
+        else:
+            return PythonValue(Int.top())
+
+    def _attr_pv_top(self) -> 'PythonValue':
+        return PythonValue.top()
+
+    def _attr_T(self) -> 'PythonValue':
+        if self.is_top():
+            return PythonValue(NdArray.top())
+
+        shape = self.shape
+        if not shape.is_size_determined():
+            return PythonValue(NdArray.top())
+
+        new_shape = Tuple([PythonValue(i) for i in reversed(shape.sorted_indices_ints())])
+
+        return PythonValue(NdArray(new_shape))
 
     def _method_dot(self, other: 'PythonValue', pos: Optional[Pos]) -> 'PythonValue':  # noqa: C901
         """Checking done with the same rules defined in numpy documentation.
@@ -451,6 +494,10 @@ class NdArray(AbstractMutVal):
                             pos
                         )
         return PythonValue(new_array)
+
+    def _method_astype(self, dtype: 'PythonValue', pos: Optional[Pos]) -> 'PythonValue':
+        # TODO(helq): Check the parameter dtype once dtype is added as a value to NdArrays
+        return PythonValue(self).copy_mut({})
 
 
 def __dims_from_Tuple(tpl: Tuple, size: int) -> 'List_[Int]':
@@ -604,13 +651,13 @@ def getshape_list(lst: Union[List, Tuple]) -> 'Tuple':  # noqa: C901
 
 
 def getshape(absval: AbstractValue) -> 'Optional[Tuple]':
-    if isinstance(absval, Int):
+    if isinstance(absval, (Int, Float)):
         return Tuple([])
     elif isinstance(absval, (List, Tuple)):
         return getshape_list(absval)
     elif isinstance(absval, NdArray):
         assert isinstance(absval.children['shape'].val, Tuple)
-        return absval.children['shape'].val
+        return absval.children['shape'].copy_mut({}).val  # type: ignore
 
     # TODO(helq): add more checks for all other variables that numpy supports
     # https://stackoverflow.com/questions/40378427/numpy-formal-definition-of-array-like-objects
@@ -650,6 +697,39 @@ def _function_array(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
     return PythonValue(arr)
 
 
+def function_from_method_array(
+        method: 'Callable[..., PythonValue]'
+) -> 'Callable[..., PythonValue]':
+    """Convert a method from NdArray into a function that takes any PythonValue and
+    converts it into an NdArray if possible and runs the method on it.
+
+    The input method can either be:
+
+    - A method with only one argument: self (which must be a NdArray)
+    - A method with three or more arguments. The first argument is self, the last one must
+      be the pos and the values in between are all PythonValues"""
+
+    def fun(arr: PythonValue, *args: PythonValue, pos: Optional[Pos]) -> PythonValue:
+        if arr.is_top():
+            newinput = NdArray.top()  # type: Optional[NdArray]
+
+        absval = arr.val
+        assert isinstance(absval, AbstractValue)
+        newinput = array_from_AbstractValue(absval, pos)
+
+        if newinput is None:
+            newinput = NdArray.top()
+
+        if len(args) == 0:
+            assert len(signature(method).parameters) == 1
+            return method(newinput)
+        else:
+            assert len(signature(method).parameters) == len(args) + 2
+            return method(newinput, *args, pos)
+
+    return fun
+
+
 ndarray = BuiltinClass(
     'ndarray', NdArray,
     args=[(Tuple, Int, List)],
@@ -660,26 +740,54 @@ ndarray = BuiltinClass(
     #        'order': AbstractValue}
 )
 
-array = BuiltinFun(
-    'array', _function_array, args=[AbstractValue],
-)
-zeros = BuiltinFun(
-    'zeros', _function_zeros, args=[(Tuple, Int, List)],
-)
-ones = BuiltinFun(
-    'ones', _function_zeros, args=[(Tuple, Int, List)],
-)
-arange = BuiltinFun(
-    'arange', _function_zeros, args=[Int],
-)
+array  = BuiltinFun('array',  _function_array, args=[AbstractValue])
+abs_       = BuiltinFun('abs',        _function_array, args=[AbstractValue])
+arcos      = BuiltinFun('arcos',      _function_array, args=[AbstractValue])
+arcosh     = BuiltinFun('arcosh',     _function_array, args=[AbstractValue])
+arcsin     = BuiltinFun('arcsin',     _function_array, args=[AbstractValue])
+arcsinh    = BuiltinFun('arcsinh',    _function_array, args=[AbstractValue])
+arctan     = BuiltinFun('arctan',     _function_array, args=[AbstractValue])
+arctanh    = BuiltinFun('arctanh',    _function_array, args=[AbstractValue])
+cos        = BuiltinFun('cos',        _function_array, args=[AbstractValue])
+floor      = BuiltinFun('floor',      _function_array, args=[AbstractValue])
+zeros_like = BuiltinFun('zeros_like', _function_array, args=[AbstractValue])
+
+zeros  = BuiltinFun('zeros',  _function_zeros, args=[(Tuple, Int, List)])
+ones   = BuiltinFun('ones',   _function_zeros, args=[(Tuple, Int, List)])
+empty  = BuiltinFun('empty',  _function_zeros, args=[(Tuple, Int, List)])
+arange = BuiltinFun('arange', _function_zeros, args=[Int])
+
+shape = BuiltinFun('shape', function_from_method_array(NdArray._attr_shape), args=[AbstractValue])
+size = BuiltinFun('size', function_from_method_array(NdArray._attr_size), args=[AbstractValue])
+ndim = BuiltinFun('ndim', function_from_method_array(NdArray._attr_ndim), args=[AbstractValue])
+dot = BuiltinFun('dot',
+                 function_from_method_array(NdArray._method_dot),
+                 args=[AbstractValue, AbstractValue])
 
 numpy_module = PythonValue(BuiltinModule(
     'numpy', {
         'ndarray': ndarray,
+        'abs': abs_,
+        'arcos': arcos,
+        'arcosh': arcosh,
+        'arcsin': arcsin,
+        'arcsinh': arcsinh,
+        'arctan': arctan,
+        'arctanh': arctanh,
+        'cos': cos,
+        'floor': floor,
+        'zeros_like': zeros_like,
+
         'array': array,
         'zeros': zeros,
         'ones': ones,
+        'empty': empty,
         'arange': arange,
+
+        'shape': shape,
+        'size': size,
+        'ndim': ndim,
+        'dot': dot,
     }
 ))
 

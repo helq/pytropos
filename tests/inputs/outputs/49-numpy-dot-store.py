@@ -30,5 +30,6 @@ store = {
   'n': ndarray_(3, 5, 6, 2),
   'o': ndarray_(6, 2),
   'p': ndarray_(5, 1, 7, 6, 2),
+  'q': PythonValue(NdArray.top()),
 }
 

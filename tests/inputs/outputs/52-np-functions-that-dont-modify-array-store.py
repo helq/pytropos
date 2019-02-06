@@ -10,9 +10,19 @@ exitcode = 0
 def ndarray_(*lst):
     return PythonValue(NdArray(pv.tuple(*(pv.int(i) for i in lst))))
 
+shape = ndarray_(2, 6, 7, 3)
+
 store = {
   'np': numpy_module,
-  'i': pv.int(10),
-  'a': ndarray_(10, 4),
-  'b': ndarray_(10, None),
+  'a': shape,
+  'copy01': shape,
+  'copy02': shape,
+  'copy03': shape,
+  'copy04': shape,
+  'copy05': shape,
+  'copy06': shape,
+  'copy07': shape,
+  'copy08': shape,
+  'copy09': shape,
+  'copy10': shape,
 }

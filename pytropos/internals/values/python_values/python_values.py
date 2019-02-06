@@ -476,6 +476,10 @@ class AbstractMutVal(AbstractValue):
         if self.is_top():
             return self
 
+        assert len(mut_heap) > 0 \
+            and self.mut_id in mut_heap, \
+            "copy_mut cannot be called with an empty mut_heap!"
+
         children = dict(self.children)
         for k, v in children.items():
             if v.is_mut():

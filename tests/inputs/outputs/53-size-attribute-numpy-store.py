@@ -12,7 +12,9 @@ def ndarray_(*lst):
 
 store = {
   'np': numpy_module,
-  'i': pv.int(10),
-  'a': ndarray_(10, 4),
-  'b': ndarray_(10, None),
+  'Top': pv.Top,
+  'NdArray': PythonValue(NdArrayAnnotation()),
+  'a': pv.int(160),
+  'b': pv.int(),
+  'c': ndarray_(2),
 }
