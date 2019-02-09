@@ -3,7 +3,7 @@ from typing import Dict, Type  # noqa: F401
 
 from typed_ast import ast3
 
-from .miscelaneous import AstTransformerError
+from .miscelaneous import AstTransformerError, copy_ast3
 
 __all__ = ['PytroposTransformer', 'AstTransformerError']
 
@@ -146,23 +146,8 @@ class PytroposTransformer(ast3.NodeTransformer):
     def visit_AugAssign(self, node: ast3.AugAssign) -> VisitorOutput:
         """Converts `A (op)= Statement` into `A = A (op) (Statement)`
         """
-        if isinstance(node.target, ast3.Name):
-            left_value = ast3.Name(
-                node.target.id, ast3.Load(),
-                lineno=node.lineno,
-                col_offset=node.col_offset
-            )  # type: ast3.expr
-        elif isinstance(node.target, ast3.Attribute):
-            left_value = ast3.Attribute(
-                node.target.value, node.target.attr, ast3.Load(),
-                lineno=node.lineno,
-                col_offset=node.col_offset
-            )
-        else:
-            # TODO(helq): allow arbitrary expr to be set at the left side
-            # All there is to do is to clone node.target and modify ctx from Store to Load
-            raise AstTransformerError("Error: Sorry I don't support left operands that "
-                                      "are not a name at the left side of an += (or *=, ...)")
+        left_value = copy_ast3(node.target)
+        left_value.ctx = ast3.Load()  # type: ignore
 
         new_target = self.visit(node.target)
         new_value = self.visit_BinOp(ast3.BinOp(
@@ -384,9 +369,9 @@ class PytroposTransformer(ast3.NodeTransformer):
                 return st
             st = pt.runIf(st, if_qstn, if_, else_)
         """
-        new_test = self.visit(node.test)
-        new_body = [self.visit(stmt) for stmt in node.body]
-        new_orelse = [self.visit(stmt) for stmt in node.orelse]
+        self.generic_visit(node)
+        new_body = node.body.copy()
+        new_orelse = node.orelse.copy()
         orelse = bool(node.orelse)
 
         new_body.append(ast3.Return(
@@ -396,7 +381,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         new_node = [
             ast3.Assign(
                 targets=[ast3.Name(id='if_qstn', ctx=ast3.Store())],
-                value=new_test
+                value=node.test
             ),
             ast3.FunctionDef(
                 name='if_',
@@ -474,8 +459,8 @@ class PytroposTransformer(ast3.NodeTransformer):
                 f"Pytropos doesn't support else statement in while loop yet, sorry :("
             )
 
-        new_test = self.visit(node.test)
-        new_body = [self.visit(stmt) for stmt in node.body]
+        self.generic_visit(node)
+        new_body = node.body.copy()
 
         new_body.append(ast3.Return(
             value=ast3.Name(id='st', ctx=ast3.Load()),
@@ -488,7 +473,7 @@ class PytroposTransformer(ast3.NodeTransformer):
                     args=[ast3.arg(arg='st', annotation=None)],
                     vararg=None, kwonlyargs=[],
                     kw_defaults=[], kwarg=None, defaults=[]),
-                body=[ast3.Return(value=new_test)],
+                body=[ast3.Return(value=node.test)],
                 decorator_list=[],
                 returns=None,
             ),

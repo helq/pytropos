@@ -34,6 +34,24 @@ def typed_ast3_to_ast(tree: ast3.AST) -> 'ast.AST':
     return helper(tree)  # type: ignore
 
 
+def copy_ast3(tree: ast3.AST) -> 'ast.AST':
+    def helper(v: Any) -> Any:
+        "Takes a `typed_ast.AST` and converts it into a python ast.AST"
+        if isinstance(v, ast3.AST):
+            cls = type(v)
+            new_v = cls(**{f: copy_ast3(node) for f, node in ast3.iter_fields(v)})
+            if hasattr(v, 'ctx'):
+                new_v.ctx = v.ctx  # type: ignore
+            return ast3.copy_location(new_v, v)
+        elif isinstance(v, list):
+            return [copy_ast3(e) for e in v]
+        elif isinstance(v, (str, int, float)) or v is None:
+            return v
+        raise AstTransformerError(
+            "typed_ast3_to_ast: The type '{}' is unknown to me".format(type(v)))
+    return helper(tree)  # type: ignore
+
+
 def pprint_ast_expr(
         exp: Union[str, ast3.AST, ast.AST],
         only_expr: bool = True,
