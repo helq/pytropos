@@ -1,6 +1,10 @@
 # Runtime requirements
 --requirement requirements.in
 
+# Better output errors
+astunparse >= 1.6.0
+typed-astunparse >= 2.0.4
+
 # Testing
 pytest
 pytest-cov

@@ -1,7 +1,7 @@
 import numpy as np
 import somelib
 
-from pytropos.check.numpy import NdArray
+from pytropos.hints.numpy import NdArray
 
 a: NdArray[2,3,4] = np.array(somelib.val)  # a should be array(shape=(2,3,4))
 b: NdArray[1,2] = somelib.numpyval()       # b should be array(shape=(1,2))

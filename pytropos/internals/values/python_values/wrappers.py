@@ -1,16 +1,19 @@
 from abc import abstractmethod
 from typing import (
-    Type, List as List_, Dict, Optional, Any, Tuple as Tuple_, Callable, Union
+    Type, List as List_, Dict, Optional, Any, Tuple as Tuple_, Union, TYPE_CHECKING
 )
 
 from ..abstract_value import AbstractValue
 from .python_values import (
-    PythonValue, Args, AbstractMutVal, AttrsContainer,
-    AttrsMutContainer, AttrsTopContainer
+    PythonValue, AbstractMutVal, AttrsMutContainer, AttrsTopContainer
 )
 from ...errors import TypeCheckLogger
 
 from ...miscelaneous import Pos
+
+if TYPE_CHECKING:
+    from typing import Callable  # noqa: F401
+    from .python_values import Args, AttrsContainer  # noqa: F401
 
 __all__ = [
     'BuiltinFun', 'BuiltinClass', 'BuiltinType', 'BuiltinModule', 'check_fun_args_kargs'

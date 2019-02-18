@@ -1,9 +1,12 @@
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from ..values.python_values import PythonValue
 from ..values.python_values.wrappers import BuiltinClass, BuiltinType
 from ..errors import TypeCheckLogger
-from ..miscelaneous import Pos
+
+if TYPE_CHECKING:
+    from typing import Optional  # noqa: F401
+    from ..miscelaneous import Pos  # noqa: F401
 
 __all__ = ['annotation']
 

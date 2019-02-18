@@ -17,11 +17,10 @@ from pytropos.debug_print import dprint, derror
 from pytropos.internals.errors import TypeCheckLogger
 
 if TYPE_CHECKING:
-    from typing import List, Optional
-    from typing import Dict, Any, Tuple  # noqa: F401
-    from types import CodeType
+    from typing import List, Optional, Dict, Any, Tuple  # noqa: F401
+    from types import CodeType  # noqa: F401
 
-    from pytropos import Store
+    from pytropos.internals import Store  # noqa: F401
 
 
 banner = r"""Welcome to
@@ -256,7 +255,7 @@ class PytroposConsole(code.InteractiveConsole):
 
     def __init__(self, locals: 'Optional[dict]' = None) -> None:
         super().__init__(locals)
-        import pytropos as pt
+        import pytropos.internals as pt
         import pytropos.internals.values.python_values as pv
         import pytropos.internals.values.builtin_values as bv
 

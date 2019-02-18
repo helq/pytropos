@@ -6,7 +6,7 @@
 
 six
 typed-ast
-astpretty
+# astpretty
 
 # Disable because pip-tools doesn't support yet installation from urls, add it manually to
 # requirements.txt

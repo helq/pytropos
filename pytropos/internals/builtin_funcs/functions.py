@@ -1,15 +1,18 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Any, TYPE_CHECKING
 
 from ..values import Top
 from ..store import Store
 from ..errors import TypeCheckLogger
 from ..values.abstract_value import AbstractValue
-from ..values.python_values.python_values import \
-    Args, PythonValue, AttrsContainer, AttrsTopContainer
+from ..values.python_values.python_values import Args, PythonValue, AttrsTopContainer
 from ..values.python_values.wrappers import BuiltinType
 from ..values.builtin_values import Int, Bool, Float
 
 from ..miscelaneous import Pos
+
+if TYPE_CHECKING:
+    from typing import Dict  # noqa: F401
+    from .python_values import AttrsContainer  # noqa: F401
 
 __all__ = ["print", "show_store", "int", "input"]
 

@@ -1,6 +1,6 @@
 from abc import abstractmethod
-from typing import Tuple, Any, Optional
-from typing import Dict  # noqa: F401
+from typing import Any, Optional
+from typing import Tuple, Dict  # noqa: F401
 
 from ..abstract_domain import AbstractDomain
 
@@ -88,8 +88,8 @@ class AbstractValue(AbstractDomain):
     op_lshift = op_OP
     op_rshift = op_OP
 
-    op_eq = op_OP
-    op_ne = op_OP
+    # op_eq = op_OP
+    # op_ne = op_OP
     op_lt = op_OP
     op_le = op_OP
     op_gt = op_OP

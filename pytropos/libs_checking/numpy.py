@@ -1,12 +1,12 @@
 import math
 import re
 from inspect import signature
-from typing import Dict, Optional, Any, Tuple as Tuple_, Union
+from typing import Optional, Any, Union, TYPE_CHECKING
 from typing import List as List_, Callable  # noqa: F401
 
 from ..internals.values.python_values.python_values import (
-    AbstractMutVal, PT, PythonValue, AttrsContainer, AttrsMutContainer,
-    AttrsTopContainer, SubscriptsContainer
+    AbstractMutVal, PT, PythonValue, AttrsMutContainer, AttrsTopContainer,
+    SubscriptsContainer
 )
 from ..internals.values.abstract_value import AbstractValue
 from ..internals.values.builtin_values import Int, Float
@@ -19,10 +19,14 @@ from ..internals.errors import TypeCheckLogger
 
 from ..internals.miscelaneous import Pos
 
+if TYPE_CHECKING:
+    from typing import Dict, Tuple as Tuple_  # noqa: F401
+    from .python_values import AttrsContainer  # noqa: F401
+
 
 __all__ = [
     'NdArray', 'ndarray', 'array', 'zeros', 'ones', 'arange', 'numpy_module',
-    'check_numpy_module', 'NdArrayAnnotation'
+    'hints_numpy_module', 'NdArrayAnnotation'
 ]
 
 
@@ -683,9 +687,9 @@ def _function_zeros(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
 def _function_array(val: PythonValue, pos: Optional[Pos]) -> PythonValue:
     """Takes any PythonValue and tries to convert it into a wrapped NdArray.
 
-    Returns either a PythonValue(NdArray(...)) or a pv.Top"""
+    Returns either a PythonValue(NdArray(...))"""
     if val.is_top():
-        return PythonValue.top()
+        return PythonValue(NdArray.top())
 
     absval = val.val
     assert isinstance(absval, AbstractValue)
@@ -791,8 +795,8 @@ numpy_module = PythonValue(BuiltinModule(
     }
 ))
 
-check_numpy_module = PythonValue(BuiltinModule(
-    'pytropos.check.numpy', {
+hints_numpy_module = PythonValue(BuiltinModule(
+    'pytropos.hints.numpy', {
         'NdArray': NdArrayAnnotation()
     }
 ))

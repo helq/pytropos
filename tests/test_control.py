@@ -1,8 +1,8 @@
 from hypothesis import given
 import hypothesis.strategies as st
 
-import pytropos as pt
-from pytropos import Store  # noqa: F401
+import pytropos.internals as pt
+from pytropos.internals import Store  # noqa: F401
 import pytropos.internals.control.execute as execute
 from pytropos.internals.values.builtin_values import Int
 from pytropos.internals.values.python_values import PythonValue

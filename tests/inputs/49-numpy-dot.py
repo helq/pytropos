@@ -1,7 +1,7 @@
 from numpy import zeros, ones
 
-from pytropos.check import Top
-from pytropos.check.numpy import NdArray
+from somelib import Top
+from pytropos.hints.numpy import NdArray
 
 # Numpy dot cases from: https://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html
 

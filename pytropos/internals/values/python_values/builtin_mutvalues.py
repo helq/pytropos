@@ -1,11 +1,9 @@
 from math import isinf
-from typing import (
-    Optional, List as List_, Any, Dict, Tuple as Tuple_, Set
-)
+from typing import Optional, Any, TYPE_CHECKING
 
 from .python_values import (
-    AbstractMutVal, PythonValue, AttrsContainer, AttrsMutContainer,
-    SubscriptsContainer, SubscriptsTopContainer, AttrsTopContainer
+    AbstractMutVal, PythonValue, AttrsMutContainer, SubscriptsContainer,
+    SubscriptsTopContainer, AttrsTopContainer,
 )
 from .wrappers import BuiltinFun
 from ..builtin_values import NoneType, Int
@@ -13,6 +11,10 @@ from ..abstract_value import AbstractValue
 from ...errors import TypeCheckLogger
 
 from ...miscelaneous import Pos
+
+if TYPE_CHECKING:
+    from typing import List as List_, Dict, Tuple as Tuple_, Set  # noqa: F401
+    from .python_values import AttrsContainer  # noqa: F401
 
 __all__ = ['List', 'Tuple']
 

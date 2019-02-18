@@ -421,8 +421,8 @@ class NoneType(AbstractValue):
 
         return object.__getattribute__(self, name)
 
-    def op_eq(self, other: 'NoneType', pos: Optional[Pos]) -> 'Bool':  # type: ignore
-        return Bool(True)
+    # def op_eq(self, other: 'NoneType', pos: Optional[Pos]) -> 'Bool':  # type: ignore
+    #     return Bool(True)
 
     def __operate_ret_false(
             self,

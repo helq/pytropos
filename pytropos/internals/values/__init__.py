@@ -1,4 +1,5 @@
-from typing import Optional, Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
+from typing import Optional  # noqa: F401
 
 from .python_values.python_values import PythonValue
 from .python_values.builtin_mutvalues import List, Tuple

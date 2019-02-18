@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
 
     pytropos.ast_transformer
+    pytropos.hints
     pytropos.internals
     pytropos.libs_checking
 

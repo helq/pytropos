@@ -1,5 +1,5 @@
-from typing import Optional, List, Union, Tuple
-from typing import Dict, Type  # noqa: F401
+from typing import Optional, List, Union
+from typing import Dict, Type, Tuple  # noqa: F401
 
 from typed_ast import ast3
 
@@ -13,13 +13,13 @@ operations = {
     ast3.Add: 'add',
     ast3.Sub: 'sub',
     ast3.Mult: 'mul',
-    ast3.MatMult: 'matmul',
+    # ast3.MatMult: 'matmul',
     ast3.Div: 'truediv',
     ast3.FloorDiv: 'floordiv',
     ast3.Mod: 'mod',
     # __divmod__ does exist but it is not an operation, it is called by a function (divmod)
     # ast3.DivMod: '__divmod__',
-    ast3.Pow: 'pow',
+    # ast3.Pow: 'pow',
     ast3.LShift: 'lshift',
     ast3.RShift: 'rshift',
     ast3.BitAnd: 'and',
@@ -28,8 +28,8 @@ operations = {
 }
 
 compopt = {
-    ast3.Eq: 'eq',
-    ast3.NotEq: 'ne',
+    # ast3.Eq: 'eq',
+    # ast3.NotEq: 'ne',
     ast3.Lt: 'lt',
     ast3.LtE: 'le',
     ast3.Gt: 'gt',
@@ -77,7 +77,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         self.console = console
 
     _supported_modules = {'numpy': 'numpy_module',
-                          'pytropos.check.numpy': 'check_numpy_module'}
+                          'pytropos.hints.numpy': 'hints_numpy_module'}
 
     def _show_store_contents_expr(self) -> ast3.Expr:
         """Returns an ast3.Expr which prints the value of the store in the screen. Useful
@@ -333,7 +333,7 @@ class PytroposTransformer(ast3.NodeTransformer):
         if not self.console:
             node.body = (
                 ast3.parse(  # type: ignore
-                    'import pytropos as pt\n'
+                    'import pytropos.internals as pt\n'
                     # 'import pytropos.libs.base\n'
                     'st = pt.Store()\n'
                     'pt.loadBuiltinFuncs(st)\n'
