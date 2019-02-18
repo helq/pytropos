@@ -8,7 +8,7 @@ Abstract Interpretation-based linter for Python.
 package = 'pytropos'
 project = "Abstract Interpretation-based linter for Python"
 project_no_spaces = project.replace(' ', '')
-version = '0.0.1'
+version = '0.0.3'
 description = 'Inteprets (Abstractly) code and reveals any error it may find'
 authors = ['Elkin Cruz']
 authors_string = ', '.join(authors)

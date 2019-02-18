@@ -175,7 +175,7 @@ def run_pytropos(  # noqa: C901
     # import astpretty
     # astpretty.pprint(newast_py)
     try:
-        newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')
+        newast_comp = compile(newast_py, '<generated type checking ast>', 'exec')  # type: ignore
     except (ValueError, TypeError):
         derror("PYTROPOS INTERNAL ERROR. Sorry, it seems something unexpected happened. "
                "Please report this issue: run pytropos again with the same input and "
@@ -253,7 +253,7 @@ class PytroposConsole(code.InteractiveConsole):
     #     return got
     locals = None  # type: Dict[str, Any]
 
-    def __init__(self, locals: 'Optional[dict]' = None) -> None:
+    def __init__(self, locals: 'Optional[Dict[str, Any]]' = None) -> None:
         super().__init__(locals)
         import pytropos.internals as pt
         import pytropos.internals.values.python_values as pv

@@ -4,44 +4,45 @@
 #
 #    pip-compile --output-file requirements-dev.txt requirements-dev.in
 #
-alabaster==0.7.11         # via sphinx
-astpretty==1.3.0
+alabaster==0.7.12         # via sphinx
 astunparse==1.6.2
-atomicwrites==1.1.5       # via pytest
-attrs==18.1.0             # via hypothesis, pytest
+atomicwrites==1.3.0       # via pytest
+attrs==18.2.0             # via hypothesis, pytest
 babel==2.6.0              # via sphinx
-certifi==2018.4.16        # via requests
+certifi==2018.11.29       # via requests
 chardet==3.0.4            # via requests
-colorama==0.3.9
-coverage==4.5.1           # via hypothesis, pytest-cov
+colorama==0.4.1
+coverage==4.5.2           # via pytest-cov
 docutils==0.14
-flake8==3.5.0
-hypothesis==3.67.0
-idna==2.7                 # via requests
-imagesize==1.0.0          # via sphinx
+entrypoints==0.3          # via flake8
+flake8==3.7.5
+hypothesis==4.5.11
+idna==2.8                 # via requests
+imagesize==1.1.0          # via sphinx
 jinja2==2.10
-markupsafe==1.0
+markupsafe==1.1.0
 mccabe==0.6.1
-more-itertools==4.3.0     # via pytest
-mypy==0.620               # via pytest-mypy
-packaging==17.1           # via sphinx
+more-itertools==6.0.0     # via pytest
+mypy-extensions==0.4.1    # via mypy
+mypy==0.670               # via pytest-mypy
+packaging==19.0           # via sphinx
 paver==1.3.4
-pluggy==0.7.1             # via pytest
-py==1.5.4
-pycodestyle==2.3.1
-pyflakes==1.6.0
-pygments==2.2.0
-pyparsing==2.2.0          # via packaging
-pytest-cov==2.5.1
+pluggy==0.8.1             # via pytest
+py==1.7.0
+pycodestyle==2.5.0
+pyflakes==2.1.0
+pygments==2.3.1
+pyparsing==2.3.1          # via packaging
+pytest-cov==2.6.1
 pytest-mypy==0.3.2
-pytest==3.7.1
-pytz==2018.5              # via babel
-requests==2.19.1          # via sphinx
-six==1.11.0
+pytest==4.2.1
+pytz==2018.9              # via babel
+requests==2.21.0          # via sphinx
+six==1.12.0
 snowballstemmer==1.2.1    # via sphinx
-sphinx==1.7.6
+sphinx==1.8.4
 sphinxcontrib-websupport==1.1.0  # via sphinx
-typed-ast==1.1.0
+typed-ast==1.3.1
 typed-astunparse==2.1.1
-urllib3==1.23             # via requests
+urllib3==1.24.1           # via requests
 wheel==0.33.0             # via astunparse
