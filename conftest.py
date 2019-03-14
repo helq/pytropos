@@ -5,7 +5,7 @@ import os
 import re
 
 # ignoring some files when testing
-collect_ignore = ['tests/inputs']
+collect_ignore = ['tests/', 'tests-old/']
 
 
 # Neomake (vim plugin) generates sometimes trash files

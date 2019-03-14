@@ -1,0 +1,53 @@
+Basic functions of numpy:
+[x] basic + - * / // %  (broadcasting)
+[x] array  (create an array out of lists, tuples, ints, and other arrays)
+
+functions that preserve the shape (not as method in 'ndarray'):
+[x] abs
+[x] arcos
+[x] arcosh
+[x] arcsin
+[x] arcsinh
+[x] arctan
+[x] arctanh
+[x] cos
+[x] floor
+[x] zeros_like
+
+Attrs that have same args and produce the same array as 'ndarray':
+[x] zeros
+[x] ones
+[x] empty
+[x] arange
+
+Attrs and functions that should be implemented for NdArray (and as functions of the module (ie, np.shape(arr))):
+[x] shape
+[x] size
+[x] ndim
+[x] dot
+[x] astype  (not as module function)
+[x] T       (not as module function)
+
+
+
+
+
+
+
+
+
+
+
+
+FUTURE: Attrs and functions to implement in the future:
+
+[ ] subscript access (not slicing :S)
+[ ] transpose
+[ ] concatenate  (not as module function)
+[ ] append       (not as module function)
+[ ] add          (not as module function)
+[ ] flatten
+[ ] sum
+[ ] prod
+[ ] eye          (not as module function)
+[ ] dtype   (the module function is a different thing)

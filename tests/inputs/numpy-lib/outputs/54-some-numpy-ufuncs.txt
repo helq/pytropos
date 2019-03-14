@@ -1,0 +1,1 @@
+tests/inputs/numpy-lib/54-some-numpy-ufuncs.py:10:4: E011 AttributeError: 'module' object has no attribute 'dtype'

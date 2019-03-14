@@ -1,0 +1,4 @@
+tests/inputs/lists-tuples/22-list-index-bad.py:2:4: E017 TypeError: list indices must be integers or slices, not float
+tests/inputs/lists-tuples/22-list-index-bad.py:3:0: E017 TypeError: list indices must be integers or slices, not float
+tests/inputs/lists-tuples/22-list-index-bad.py:4:4: E017 TypeError: list indices must be integers or slices, not float
+tests/inputs/lists-tuples/22-list-index-bad.py:5:2: W201 Global variable `_` isn't set

@@ -1,1 +1,0 @@
-tests/inputs/42-numpy-array-addition.py:7:3: W201 Global variable `_` isn't set

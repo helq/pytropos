@@ -168,6 +168,9 @@ class PythonValue(AbstractDomain):
         new_val = self.val.join_mut(other.val, mut_heap)
         if new_obj.val == PT.InConstruction:
             new_obj.val = new_val
+        # Notice that we don't change the value of the Object if it is not InConstruction.
+        # If a PythonValue is not anymore in construction it means that it has been made
+        # "top" by some call before it
 
         return new_obj
 

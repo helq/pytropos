@@ -14,5 +14,5 @@ authors = ['Elkin Cruz']
 authors_string = ', '.join(authors)
 emails = ['linuxero789@gmail.com']
 license = 'MIT'
-copyright = '2018 ' + authors_string
+copyright = '2018-2019 ' + authors_string
 url = 'http://github.com/helq/pytropos'

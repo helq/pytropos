@@ -142,8 +142,8 @@ in the example above.
     endfunction
 
     let g:neomake_python_pytropos_maker = {
-       \ 'exe': 'paver',
-       \ 'args': ['run'],
+       \ 'exe': 'pytropos',
+       \ 'args': [],
        \ 'errorformat':
          \ '%f:%l:%c: %m',
       \ 'postprocess': [

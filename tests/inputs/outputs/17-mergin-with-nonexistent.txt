@@ -1,1 +1,0 @@
-tests/inputs/17-mergin-with-nonexistent.py:1:3: W201 Global variable `_` isn't set

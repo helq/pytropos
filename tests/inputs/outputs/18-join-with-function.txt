@@ -1,4 +1,0 @@
-tests/inputs/18-join-with-function.py:4:3: W201 Global variable `_` isn't set
-tests/inputs/18-join-with-function.py:9:0: E014 TypeError: append() takes exactly one argument (2 given)
-tests/inputs/18-join-with-function.py:10:0: F001 Sorry! Pytropos doesn't support calling append with a starred variable
-tests/inputs/18-join-with-function.py:11:0: E014 TypeError: append() takes no keyword arguments

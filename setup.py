@@ -174,7 +174,7 @@ def _lint() -> int:
 
     project_python_files = [filename for filename in get_project_files()
                             if filename.endswith(b'.py')
-                            and not re.match('tests/inputs/', filename.decode())]
+                            and not re.match('tests(|-old)/', filename.decode())]
     common_args = [b'--exclude=docs/**']
     if use_flake8:
         call_args = \

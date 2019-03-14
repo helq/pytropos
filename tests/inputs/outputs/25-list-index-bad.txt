@@ -1,1 +1,0 @@
-tests/inputs/25-list-index-bad.py:9:2: W201 Global variable `a` isn't set

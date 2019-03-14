@@ -1,1 +1,0 @@
-tests/inputs/48-type-hints-input-and-regular-int.py:1:9: W201 Global variable `_` isn't set

@@ -1,1 +1,0 @@
-tests/inputs/35-list-in-loop.py:3:6: W201 Global variable `_` isn't set

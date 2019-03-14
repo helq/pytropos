@@ -180,16 +180,14 @@ class List(TupleOrList):
                  ) -> None:
         super().__init__(lst=lst, size=size, children=children)
 
-        if lst is not None:
-            self.children[('attr', 'append')] = \
-                PythonValue(BuiltinFun(
-                    'append',
-                    List._method_append,
-                    self,
-                    args=[AbstractValue]
-                ))
-
-        self.__attrs = None  # type: Optional[AttrsContainer]
+        # if lst is not None:
+        #     self.children[('attr', 'append')] = \
+        #         PythonValue(BuiltinFun(
+        #             'append',
+        #             List._method_append,
+        #             self,
+        #             args=[AbstractValue]
+        #         ))
 
     def __repr__(self) -> 'str':
         if self.is_top():
@@ -219,12 +217,21 @@ class List(TupleOrList):
         return "list"
 
     def get_attrs(self) -> 'AttrsContainer':
-        if self.__attrs is None:
-            if self.is_top():
-                self.__attrs = AttrsTopContainer()
-            else:
-                self.__attrs = AttrsMutContainer('list', self.children, read_only=True)
-        return self.__attrs
+        if self.is_top():
+            return AttrsTopContainer()
+        else:
+            return AttrsMutContainer(
+                'list',
+                self.children,
+                {'append':
+                 lambda: PythonValue(BuiltinFun(
+                     'append',
+                     List._method_append,
+                     self,
+                     args=[AbstractValue]
+                 ))
+                 },
+                read_only=True)
 
     def get_subscripts(self, pos: 'Optional[Pos]') -> SubscriptsContainer:
         if self.is_top():

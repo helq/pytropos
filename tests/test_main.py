@@ -19,7 +19,7 @@ parametrize = pytest.mark.parametrize
 only_with_output = True  # This set to false to check even for incomplete tests
 
 # Obtaining which input files should be processed
-inputs_raw = glob.glob('tests/inputs/??-*.py')
+inputs_raw = glob.glob('tests/inputs/*/??-*.py')
 
 if only_with_output:
     inputs: List[str] = []

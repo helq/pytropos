@@ -1,1 +1,0 @@
-tests/inputs/14-attribute-access.py:1:0: E011 AttributeError: 'list' object has no attribute 'test'

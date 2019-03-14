@@ -1,0 +1,2 @@
+tests/inputs/numpy-lib/43-numpy-broadcasting.py:4:5: W502 ValueError: operands could not be broadcast together with shapes (2, 2, 4) (3, 1)
+tests/inputs/numpy-lib/43-numpy-broadcasting.py:7:5: W502 ValueError: operands could not be broadcast together with shapes (2, 2, 4) (2,)

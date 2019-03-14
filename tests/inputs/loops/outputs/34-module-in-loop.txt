@@ -1,0 +1,1 @@
+tests/inputs/loops/34-module-in-loop.py:3:6: W201 Global variable `_` isn't set

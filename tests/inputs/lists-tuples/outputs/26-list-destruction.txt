@@ -1,0 +1,1 @@
+tests/inputs/lists-tuples/26-list-destruction.py:3:2: W201 Global variable `_` isn't set

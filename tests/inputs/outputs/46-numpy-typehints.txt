@@ -1,1 +1,0 @@
-tests/inputs/46-numpy-typehints.py:11:0: W301 Type array(shape=(2, 5)) is NOT more specific than type array(shape=(2, 1)). Incompatible types in assignment (expression has type array(shape=(2, 1)), variable has type array(shape=(2, 5)))

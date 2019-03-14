@@ -1,0 +1,1 @@
+tests/inputs/numpy-lib/16-join-numpy.py:8:3: W201 Global variable `_` isn't set
