@@ -4,45 +4,119 @@
 #
 #    pip-compile --output-file requirements-dev.txt requirements-dev.in
 #
-alabaster==0.7.12         # via sphinx
+alabaster==0.7.12
+    # via sphinx
 astunparse==1.6.2
-atomicwrites==1.3.0       # via pytest
-attrs==18.2.0             # via hypothesis, pytest
-babel==2.6.0              # via sphinx
-certifi==2018.11.29       # via requests
-chardet==3.0.4            # via requests
+    # via
+    #   -r requirements-dev.in
+    #   typed-astunparse
+atomicwrites==1.3.0
+    # via pytest
+attrs==18.2.0
+    # via
+    #   hypothesis
+    #   pytest
+babel==2.6.0
+    # via sphinx
+certifi==2018.11.29
+    # via requests
+chardet==3.0.4
+    # via requests
 colorama==0.4.1
-coverage==4.5.2           # via pytest-cov
+    # via -r requirements-dev.in
+coverage==4.5.2
+    # via pytest-cov
 docutils==0.14
-entrypoints==0.3          # via flake8
+    # via
+    #   -r requirements-dev.in
+    #   sphinx
+entrypoints==0.3
+    # via flake8
 flake8==3.7.5
+    # via -r requirements-dev.in
 hypothesis==4.5.11
-idna==2.8                 # via requests
-imagesize==1.1.0          # via sphinx
-jinja2==2.10
+    # via -r requirements-dev.in
+idna==2.8
+    # via requests
+imagesize==1.1.0
+    # via sphinx
+jinja2==2.11.3
+    # via
+    #   -r requirements-dev.in
+    #   sphinx
 markupsafe==1.1.0
+    # via
+    #   -r requirements-dev.in
+    #   jinja2
 mccabe==0.6.1
-more-itertools==6.0.0     # via pytest
-mypy-extensions==0.4.1    # via mypy
-mypy==0.670               # via pytest-mypy
-packaging==19.0           # via sphinx
+    # via
+    #   -r requirements-dev.in
+    #   flake8
+more-itertools==6.0.0
+    # via pytest
+mypy-extensions==0.4.1
+    # via mypy
+mypy==0.670
+    # via pytest-mypy
+packaging==19.0
+    # via sphinx
 paver==1.3.4
-pluggy==0.8.1             # via pytest
+    # via -r requirements-dev.in
+pluggy==0.8.1
+    # via pytest
 py==1.7.0
+    # via
+    #   -r requirements-dev.in
+    #   pytest
 pycodestyle==2.5.0
+    # via
+    #   -r requirements-dev.in
+    #   flake8
 pyflakes==2.1.0
+    # via
+    #   -r requirements-dev.in
+    #   flake8
 pygments==2.3.1
-pyparsing==2.3.1          # via packaging
+    # via
+    #   -r requirements-dev.in
+    #   sphinx
+pyparsing==2.3.1
+    # via packaging
 pytest-cov==2.6.1
+    # via -r requirements-dev.in
 pytest-mypy==0.3.2
+    # via -r requirements-dev.in
 pytest==4.2.1
-pytz==2018.9              # via babel
-requests==2.21.0          # via sphinx
+    # via
+    #   -r requirements-dev.in
+    #   pytest-cov
+    #   pytest-mypy
+pytz==2018.9
+    # via babel
+requests==2.21.0
+    # via sphinx
 six==1.12.0
-snowballstemmer==1.2.1    # via sphinx
+    # via
+    #   -r requirements.in
+    #   astunparse
+    #   packaging
+    #   paver
+    #   pytest
+    #   sphinx
+snowballstemmer==1.2.1
+    # via sphinx
 sphinx==1.8.4
-sphinxcontrib-websupport==1.1.0  # via sphinx
+    # via -r requirements-dev.in
+sphinxcontrib-websupport==1.1.0
+    # via sphinx
 typed-ast==1.3.2
+    # via
+    #   -r requirements.in
+    #   mypy
+    #   typed-astunparse
 typed-astunparse==2.1.1
-urllib3==1.24.2           # via requests
-wheel==0.33.0             # via astunparse
+    # via -r requirements-dev.in
+urllib3==1.24.2
+    # via requests
+wheel==0.33.0
+    # via astunparse
